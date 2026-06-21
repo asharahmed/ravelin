@@ -1,3 +1,7 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.IdentityModel.Tokens;
 using Ravelin.Auth;
 using Ravelin.Client.Pages;
 using Ravelin.Components;
@@ -19,14 +23,50 @@ builder.Services.AddHealthChecks();
 // ConnectionStrings__RavelinDb (a secret). Migrations are applied out-of-band.
 builder.Services.AddRavelinInfrastructure(builder.Configuration.GetConnectionString("RavelinDb"));
 
-// API-key authentication for pipeline ingestion (project-scoped). Human auth (Identity +
-// JWT/RBAC) is added in Stage 4.
-builder.Services.AddAuthentication()
+// --- Identity (users + roles) -------------------------------------------------
+builder.Services.AddIdentityCore<IdentityUser>(options =>
+    {
+        options.Password.RequiredLength = 12;
+        options.User.RequireUniqueEmail = true;
+    })
+    .AddRoles<IdentityRole>()
+    .AddEntityFrameworkStores<RavelinDbContext>();
+
+// --- AuthN: JWT for humans (default), API keys for pipeline ingestion ----------
+var jwtSection = builder.Configuration.GetSection(JwtOptions.SectionName);
+builder.Services.Configure<JwtOptions>(jwtSection);
+builder.Services.AddScoped<JwtTokenService>();
+var jwt = jwtSection.Get<JwtOptions>() ?? new JwtOptions();
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        // Keep claim names as-is ("role", "email") instead of remapping to long URIs,
+        // so RoleClaimType/NameClaimType below match the token and RequireRole works.
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwt.Issuer,
+            ValidAudience = jwt.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(jwt.SigningKey.Length > 0 ? jwt.SigningKey : new string('0', 32))),
+            RoleClaimType = JwtTokenService.RoleClaim,
+            NameClaimType = "email",
+        };
+    })
     .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(
         ApiKeyAuthenticationHandler.SchemeName, _ => { });
+
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+// Apply role + seed-user setup at startup.
+await IdentitySeeder.SeedAsync(app.Services, app.Configuration);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -65,7 +105,8 @@ var apiInfo = new ApiInfo(
 
 app.MapGet("/api/info", () => apiInfo);
 
-// Ingestion (API key), admin + reads (bootstrap token). See Endpoints/RavelinEndpoints.cs.
+// Auth (login -> JWT), ingestion (API key), admin (Admin role) + reads (any authenticated
+// user). See Endpoints/RavelinEndpoints.cs.
 app.MapRavelinApi();
 // ------------------------------------------------------------------------------
 

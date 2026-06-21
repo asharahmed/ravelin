@@ -101,6 +101,30 @@ the vision doc wins. Keep both updated as decisions are made.
   container restarts (log warning) — address when JWT signing keys arrive (Stage 4) or via
   Key Vault (Stage 8). Demo API key value appeared in session output — fine (demo data).
 
+## Stage 4a — DONE (server auth + RBAC, live)
+- `RavelinDbContext` now extends `IdentityDbContext<IdentityUser>`; `AddIdentity` migration
+  applied to Azure SQL (AspNet* tables).
+- Identity (AddIdentityCore + roles + EF stores), password min length 12. Roles
+  Admin/Analyst/Viewer (`RavelinRoles` in Shared). `IdentitySeeder` seeds roles + admin +
+  read-only demo user at startup from config (no default passwords — only seeds if a
+  password is configured).
+- **JWT**: `JwtTokenService` issues HMAC-SHA256 tokens (claims: sub, email, role). JwtBearer
+  is the default scheme; **`MapInboundClaims=false`** + `RoleClaimType="role"` /
+  `NameClaimType="email"` (without MapInboundClaims=false, RequireRole(Admin) failed 403 —
+  the role claim was remapped). ApiKey scheme still used for `/api/ingest`.
+- Endpoints: `POST /api/auth/login` (email/pw → JWT). Admin endpoints now
+  `RequireAuthorization(RequireRole(Admin))`; reads `RequireAuthorization()` (any user).
+  **Bootstrap-token gate removed** (`BootstrapTokenFilter` deleted).
+- Terraform: replaced bootstrap-token secret with `jwt-signing-key`, `seed-admin-password`,
+  `seed-demo-password` secrets + Jwt__*/Seed__* env. Outputs: admin_email/admin_password,
+  demo_email/demo_password (sensitive). `terraform output -raw admin_password` to log in.
+- **Verified live (image ravelin:0.4.3):** admin login→JWT→create project 201 / create
+  api-key 200; viewer create 403, viewer read 200; no-token 401; bad login 401.
+- **REMAINING — Stage 4b:** Blazor client login UI (login page, token storage,
+  AuthenticationStateProvider, attach Bearer to HttpClient, AuthorizeView). Server auth done.
+- **Debt:** JWT signing key is symmetric in a Container App secret (→ Key Vault in Stage 8);
+  no token refresh yet; DataProtection keys not persisted across restarts.
+
 ## Current status
 Vision + all 6 technical decisions agreed. Build plan defined.
 **Stage 0 (foundations / walking skeleton) — code complete & verified natively:**

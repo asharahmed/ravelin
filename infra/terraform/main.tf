@@ -10,11 +10,29 @@ resource "random_string" "suffix" {
   special = false
 }
 
-# Temporary Stage 3 admin/bootstrap token (header X-Bootstrap-Token). Removed in Stage 4
-# when ASP.NET Core Identity + RBAC replace it.
-resource "random_password" "bootstrap" {
-  length  = 32
+# JWT signing key (HMAC-SHA256) for user auth tokens.
+resource "random_password" "jwt_signing" {
+  length  = 64
   special = false
+}
+
+# Seeded user passwords (meet Identity complexity: upper/lower/digit/special).
+resource "random_password" "admin" {
+  length           = 20
+  min_upper        = 2
+  min_lower        = 2
+  min_numeric      = 2
+  min_special      = 2
+  override_special = "!#%-_=+"
+}
+
+resource "random_password" "demo" {
+  length           = 20
+  min_upper        = 2
+  min_lower        = 2
+  min_numeric      = 2
+  min_special      = 2
+  override_special = "!#%-_=+"
 }
 
 resource "azurerm_resource_group" "main" {
@@ -91,10 +109,19 @@ resource "azurerm_container_app" "main" {
     value = local.sql_connection_string
   }
 
-  # Temporary Stage 3 admin bootstrap token.
   secret {
-    name  = "bootstrap-token"
-    value = random_password.bootstrap.result
+    name  = "jwt-signing-key"
+    value = random_password.jwt_signing.result
+  }
+
+  secret {
+    name  = "seed-admin-password"
+    value = random_password.admin.result
+  }
+
+  secret {
+    name  = "seed-demo-password"
+    value = random_password.demo.result
   }
 
   ingress {
@@ -124,8 +151,32 @@ resource "azurerm_container_app" "main" {
       }
 
       env {
-        name        = "Ravelin__BootstrapToken"
-        secret_name = "bootstrap-token"
+        name        = "Jwt__SigningKey"
+        secret_name = "jwt-signing-key"
+      }
+      env {
+        name  = "Jwt__Issuer"
+        value = "ravelin"
+      }
+      env {
+        name  = "Jwt__Audience"
+        value = "ravelin"
+      }
+      env {
+        name  = "Seed__AdminEmail"
+        value = var.seed_admin_email
+      }
+      env {
+        name        = "Seed__AdminPassword"
+        secret_name = "seed-admin-password"
+      }
+      env {
+        name  = "Seed__DemoEmail"
+        value = var.seed_demo_email
+      }
+      env {
+        name        = "Seed__DemoPassword"
+        secret_name = "seed-demo-password"
       }
 
       liveness_probe {

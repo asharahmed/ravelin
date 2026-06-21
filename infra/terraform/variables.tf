@@ -63,6 +63,18 @@ variable "sql_admin_login" {
   default     = "ravelinadmin"
 }
 
+variable "seed_admin_email" {
+  description = "Email for the seeded Admin user."
+  type        = string
+  default     = "admin@ravelin.local"
+}
+
+variable "seed_demo_email" {
+  description = "Email for the seeded read-only Viewer (demo) user."
+  type        = string
+  default     = "demo@ravelin.local"
+}
+
 variable "client_ip_address" {
   description = "Optional public IP allowed through the SQL firewall (for running migrations from a workstation). Empty disables the rule."
   type        = string

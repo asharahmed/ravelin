@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Ravelin.Auth;
 using Ravelin.Domain.Entities;
@@ -6,6 +7,7 @@ using Ravelin.Domain.Enums;
 using Ravelin.Domain.Ingestion;
 using Ravelin.Infrastructure;
 using Ravelin.Infrastructure.Services;
+using Ravelin.Shared;
 using Ravelin.Shared.Contracts;
 
 namespace Ravelin.Endpoints;
@@ -16,9 +18,41 @@ public static class RavelinEndpoints
 
     public static void MapRavelinApi(this WebApplication app)
     {
+        MapAuth(app);
         MapIngestion(app);
         MapAdmin(app);
         MapReads(app);
+    }
+
+    // --- Human auth: email/password -> JWT ----------------------------------------------
+    private static void MapAuth(WebApplication app)
+    {
+        app.MapPost("/api/auth/login", async (
+            LoginRequest request, UserManager<IdentityUser> users, JwtTokenService jwt) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+            {
+                return Results.BadRequest("Email and password are required.");
+            }
+
+            var user = await users.FindByEmailAsync(request.Email);
+            if (user is null || !await users.CheckPasswordAsync(user, request.Password))
+            {
+                return Results.Unauthorized(); // same response whether user exists or not
+            }
+
+            var roles = await users.GetRolesAsync(user);
+            var (token, expiresAt) = jwt.CreateToken(user.Id, user.Email!, roles);
+
+            return Results.Ok(new LoginResponse
+            {
+                Token = token,
+                ExpiresAt = expiresAt,
+                Email = user.Email!,
+                Roles = roles.ToList(),
+            });
+        })
+        .DisableAntiforgery();
     }
 
     // --- Ingestion (API-key auth; project comes from the key, never the route) ----------
@@ -89,7 +123,7 @@ public static class RavelinEndpoints
     private static void MapAdmin(WebApplication app)
     {
         var admin = app.MapGroup("/api/admin")
-            .AddEndpointFilter<BootstrapTokenFilter>()
+            .RequireAuthorization(policy => policy.RequireRole(RavelinRoles.Admin))
             .DisableAntiforgery();
 
         admin.MapPost("/projects", async (CreateProjectRequest req, RavelinDbContext db) =>
@@ -136,10 +170,10 @@ public static class RavelinEndpoints
         });
     }
 
-    // --- Reads (bootstrap-token gate for now; moves to RBAC in Stage 4) -----------------
+    // --- Reads (any authenticated user: Viewer / Analyst / Admin) -----------------------
     private static void MapReads(WebApplication app)
     {
-        var reads = app.MapGroup("/api").AddEndpointFilter<BootstrapTokenFilter>();
+        var reads = app.MapGroup("/api").RequireAuthorization();
 
         reads.MapGet("/projects", async (RavelinDbContext db) =>
         {

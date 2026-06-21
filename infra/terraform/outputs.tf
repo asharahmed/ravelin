@@ -39,8 +39,24 @@ output "sql_connection_string" {
   sensitive   = true
 }
 
-output "bootstrap_token" {
-  description = "Temporary Stage 3 admin bootstrap token (X-Bootstrap-Token header)."
-  value       = random_password.bootstrap.result
+output "admin_email" {
+  description = "Seeded Admin login email."
+  value       = var.seed_admin_email
+}
+
+output "admin_password" {
+  description = "Seeded Admin login password."
+  value       = random_password.admin.result
+  sensitive   = true
+}
+
+output "demo_email" {
+  description = "Seeded read-only demo (Viewer) login email."
+  value       = var.seed_demo_email
+}
+
+output "demo_password" {
+  description = "Seeded read-only demo (Viewer) login password."
+  value       = random_password.demo.result
   sensitive   = true
 }
