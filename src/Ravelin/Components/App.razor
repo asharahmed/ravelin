@@ -5,6 +5,28 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
+    <script>
+        // Apply the saved (or OS-preferred) color theme before first paint to avoid a flash,
+        // and expose a tiny helper the Blazor toggle calls. Bootstrap 5.3 reads data-bs-theme.
+        (function () {
+            try {
+                var stored = localStorage.getItem('ravelin.theme');
+                var theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-bs-theme', theme);
+            } catch (e) { }
+            window.ravelinTheme = {
+                get: function () { return document.documentElement.getAttribute('data-bs-theme') || 'light'; },
+                set: function (t) {
+                    document.documentElement.setAttribute('data-bs-theme', t);
+                    try { localStorage.setItem('ravelin.theme', t); } catch (e) { }
+                    return t;
+                },
+                toggle: function () {
+                    return window.ravelinTheme.set(window.ravelinTheme.get() === 'dark' ? 'light' : 'dark');
+                }
+            };
+        })();
+    </script>
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
     <link rel="stylesheet" href="@Assets["app.css"]" />

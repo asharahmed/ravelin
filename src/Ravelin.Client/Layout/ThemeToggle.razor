@@ -1,0 +1,29 @@
+@inject IJSRuntime JS
+
+<button type="button" class="btn btn-sm btn-outline-secondary"
+        @onclick="ToggleAsync"
+        title="@(isDark ? "Switch to light mode" : "Switch to dark mode")"
+        aria-label="Toggle color theme">
+    @(isDark ? "☀️ Light" : "🌙 Dark")
+</button>
+
+@code {
+    private bool isDark;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Sync the label with the theme already applied by the head script.
+            var theme = await JS.InvokeAsync<string>("ravelinTheme.get");
+            isDark = theme == "dark";
+            StateHasChanged();
+        }
+    }
+
+    private async Task ToggleAsync()
+    {
+        var theme = await JS.InvokeAsync<string>("ravelinTheme.toggle");
+        isDark = theme == "dark";
+    }
+}

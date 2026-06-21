@@ -6,6 +6,10 @@ a, .btn-link {
     color: #006bb7;
 }
 
+[data-bs-theme="dark"] a, [data-bs-theme="dark"] .btn-link {
+    color: #6ea8fe;
+}
+
 .btn-primary {
     color: #fff;
     background-color: #1b6ec2;
