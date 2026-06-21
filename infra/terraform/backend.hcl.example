@@ -1,0 +1,8 @@
+# Copy to backend.hcl and fill in the values printed by scripts/bootstrap-tfstate.sh.
+# backend.hcl is gitignored (it names your state storage). Init with:
+#   terraform init -backend-config=backend.hcl
+resource_group_name  = "rg-ravelin-tfstate"
+storage_account_name = "stravelintfXXXXXXXX"
+container_name       = "tfstate"
+key                  = "dev.terraform.tfstate"
+use_azuread_auth     = true

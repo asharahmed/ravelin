@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars and adjust as needed (terraform.tfvars is gitignored).
+project     = "ravelin"
+environment = "dev"
+location    = "canadacentral"
+
+# Scale-to-zero by default to preserve free credit (cold start on first hit).
+min_replicas = 0
+max_replicas = 1

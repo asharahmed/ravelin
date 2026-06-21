@@ -1,0 +1,113 @@
+# Ravelin CI/CD — build -> test -> containerize (ACR) -> deploy (Container Apps)
+#
+# Prerequisites (one-time, in Azure DevOps):
+#   1. An ARM service connection to your Azure subscription, named to match
+#      `azureServiceConnection` below (Project settings -> Service connections ->
+#      New -> Azure Resource Manager). Its service principal needs Contributor on
+#      the resource group (covers `az acr build` push and `az containerapp update`).
+#   2. Fill the variables marked TODO from your Terraform outputs
+#      (`terraform output`), ideally via a variable group instead of editing here.
+#
+# Security scanning (SAST/SCA/secret/image/IaC) is added in Stage 8 — kept out here
+# to keep the first pipeline focused on the build-and-deploy loop.
+
+trigger:
+  branches:
+    include:
+      - main
+
+variables:
+  azureServiceConnection: 'ravelin-azure'   # ARM service connection name
+  acrName: ''                               # TODO: terraform output acr_name (e.g. acrravelindevab12cd)
+  acrLoginServer: ''                        # TODO: terraform output acr_login_server
+  resourceGroup: 'rg-ravelin-dev'           # terraform output resource_group_name
+  containerAppName: 'ca-ravelin-dev'        # terraform output container_app_name
+  imageRepository: 'ravelin'
+  tag: '$(Build.BuildId)'
+  buildConfiguration: 'Release'
+  dotnetSdkVersion: '10.0.x'
+
+stages:
+  - stage: Build
+    displayName: Build & test
+    jobs:
+      - job: build_test
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: UseDotNet@2
+            displayName: Install .NET SDK
+            inputs:
+              packageType: sdk
+              version: '$(dotnetSdkVersion)'
+
+          - script: dotnet restore Ravelin.slnx
+            displayName: Restore
+
+          - script: dotnet build Ravelin.slnx -c $(buildConfiguration) --no-restore --nologo
+            displayName: Build
+
+          - script: >
+              dotnet test Ravelin.slnx -c $(buildConfiguration) --no-build --nologo
+              --logger trx --results-directory $(Agent.TempDirectory)/testresults
+            displayName: Test
+
+          - task: PublishTestResults@2
+            displayName: Publish test results
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: VSTest
+              testResultsFiles: '$(Agent.TempDirectory)/testresults/*.trx'
+              failTaskOnFailedTests: true
+
+  - stage: Image
+    displayName: Build & push image (ACR)
+    dependsOn: Build
+    jobs:
+      - job: acr_build
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: AzureCLI@2
+            displayName: az acr build
+            inputs:
+              azureSubscription: '$(azureServiceConnection)'
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -euo pipefail
+                az acr build \
+                  --registry "$(acrName)" \
+                  --image "$(imageRepository):$(tag)" \
+                  --image "$(imageRepository):latest" \
+                  --file Dockerfile .
+
+  - stage: Deploy
+    displayName: Deploy to Container Apps
+    dependsOn: Image
+    jobs:
+      - deployment: deploy
+        pool:
+          vmImage: 'ubuntu-latest'
+        environment: 'ravelin-dev'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureCLI@2
+                  displayName: Update Container App image
+                  inputs:
+                    azureSubscription: '$(azureServiceConnection)'
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -euo pipefail
+                      az config set extension.use_dynamic_install=yes_without_prompt
+                      az containerapp update \
+                        --name "$(containerAppName)" \
+                        --resource-group "$(resourceGroup)" \
+                        --image "$(acrLoginServer)/$(imageRepository):$(tag)"
+                      FQDN=$(az containerapp show --name "$(containerAppName)" \
+                        --resource-group "$(resourceGroup)" \
+                        --query properties.configuration.ingress.fqdn -o tsv)
+                      echo "Deployed: https://$FQDN"

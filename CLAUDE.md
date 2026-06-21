@@ -66,9 +66,24 @@ Vision + all 6 technical decisions agreed. Build plan defined.
   DTO); `/health` probe added. Verified via `dotnet run` (health 200, api/info JSON, root
   page served). `dotnet build` + `dotnet test` green (2 tests).
 - Containerized: multi-stage `Dockerfile` → chiseled non-root runtime; `.dockerignore`.
+- **Git/GitHub:** initialized; first commit pushed to **public** repo
+  `https://github.com/asharahmed/ravelin` (branch `main`, remote `origin`).
 - **Deferred:** in-container smoke test (`docker build`/`run`) — OrbStack daemon would not
-  start in the session. Re-run once Docker is up.
-- **Not yet done:** `git init` / GitHub repo / first commit (do when user approves).
+  start in the session (stuck "Starting" on pre-release macOS 27; no Docker Desktop). The
+  Dockerfile will be validated for real by the Stage 1 pipeline build. Re-run locally once
+  Docker is fixed (`brew reinstall --cask orbstack` may help).
 
-Next action: close out Stage 0 (Docker smoke test + git/GitHub) then begin **Stage 1**
-(Terraform + Azure Pipelines + deploy to Azure Container Apps).
+**Stage 0 = DONE** (only the optional local Docker smoke test deferred).
+
+**Stage 1 in progress:**
+- **1a (Terraform) — authored & `terraform validate` clean** (azurerm v4.78, TF 1.5.7).
+  `infra/terraform/` provisions RG, Log Analytics, ACR (admin disabled), user-assigned
+  identity + AcrPull, Container Apps env + app (scale-to-zero, /health probes, placeholder
+  image; pipeline updates image, TF ignores image drift). Remote state via
+  `scripts/bootstrap-tfstate.sh` + `backend.hcl`. Azure SQL deferred to Stage 2.
+- **1b (Azure Pipeline) — authored, valid YAML.** `azure-pipelines.yml`: build/test →
+  `az acr build` → `az containerapp update`. Security scanning deferred to Stage 8.
+- **1c (interactive cloud) — PENDING:** user has Azure subscription ready; needs to finish
+  creating Azure DevOps org + `ravelin` project, then `az login`, then: bootstrap state →
+  `terraform apply` → create `ravelin-azure` ARM service connection + pipeline in ADO →
+  set `acrName`/`acrLoginServer` vars from TF outputs → run pipeline → live URL.

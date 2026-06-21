@@ -493,3 +493,6 @@ crash.log
 # Local env / secrets
 *.env
 appsettings.*.Local.json
+
+# Terraform backend config (names your state storage)
+backend.hcl
