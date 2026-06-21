@@ -1,0 +1,23 @@
+# Build artifacts (must be rebuilt inside the image for reproducibility)
+**/bin/
+**/obj/
+**/out/
+
+# Editor / tooling
+**/.vs/
+**/.vscode/
+**/.idea/
+
+# VCS & docs (not needed in the image)
+.git/
+.gitignore
+.dockerignore
+Dockerfile
+**/*.md
+
+# Node (unrelated/optional tooling)
+**/node_modules/
+
+# Local env / secrets — never copy into an image
+**/*.env
+**/appsettings.*.Local.json

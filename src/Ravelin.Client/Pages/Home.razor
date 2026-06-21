@@ -1,0 +1,50 @@
+@page "/"
+@using Ravelin.Shared
+@inject HttpClient Http
+
+<PageTitle>Ravelin</PageTitle>
+
+<h1>Ravelin</h1>
+<p class="lead">Vulnerability SLA &amp; compliance tracker — hold the line on security debt.</p>
+
+<h2>Service status</h2>
+
+@if (info is null && error is null)
+{
+    <p><em>Contacting API…</em></p>
+}
+else if (error is not null)
+{
+    <div class="alert alert-danger" role="alert">
+        Could not reach the API: @error
+    </div>
+}
+else
+{
+    <table class="table w-auto">
+        <tbody>
+            <tr><th scope="row">Name</th><td>@info!.Name</td></tr>
+            <tr><th scope="row">Description</th><td>@info.Description</td></tr>
+            <tr><th scope="row">Version</th><td>@info.Version</td></tr>
+            <tr><th scope="row">Environment</th><td>@info.Environment</td></tr>
+        </tbody>
+    </table>
+    <p class="text-success">✔ Client, API, and shared contract are wired end-to-end.</p>
+}
+
+@code {
+    private ApiInfo? info;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            info = await Http.GetFromJsonAsync<ApiInfo>("api/info");
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+    }
+}
