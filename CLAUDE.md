@@ -174,8 +174,18 @@ Vision + all 6 technical decisions agreed. Build plan defined.
   - **Pipeline (`azure-pipelines.yml`) rewritten** to the same Docker-less SDK-container
     approach (build/test → `dotnet publish -t:PublishContainer` to ACR → `az containerapp
     update`), all under one ARM service connection.
-  - **REMAINING (user-gated): Stage 1c pipeline automation.** Needs the user to: create the
-    Azure DevOps org + `ravelin` project, create the **`ravelin-azure` ARM service
-    connection** (requires app registration — may be restricted in the Birmingham tenant;
-    user must drive this, NOT autonomous), point a pipeline at `azure-pipelines.yml`, run
-    it. The app is already live via the manual path regardless.
+  - **Stage 1c pipeline automation — ✅ DONE & GREEN (2026-06-21).** Pipeline runs
+    end-to-end on push to `main` (build/test → SDK-container publish to ACR → `az containerapp
+    update`). First green run shipped `ravelin:1` (tag = `Build.BuildId`) → revision
+    `ca-ravelin-dev--0000016`, healthy.
+    - **App-registration was blocked** in the Birmingham tenant ("Insufficient privileges …
+      create a Microsoft Entra Application"). Solved via **managed-identity workload identity
+      federation**: `infra/terraform/cicd.tf` provisions a dedicated CI identity
+      `id-ravelin-dev-cicd` (AcrPush + RG Contributor; deliberately separate from the app's
+      AcrPull-only runtime identity). ADO service connection `ravelin-azure` uses **Identity
+      type = Managed identity** → ADO writes the federated credential onto the MI (ARM op, no
+      Graph perms). The MI's `az acr login --expose-token` push worked.
+    - First-run gotcha: ADO pauses to **Permit** the `ravelin-azure` connection + `ravelin-dev`
+      environment before Image/Deploy stages run.
+    - Note: pipeline tags images by `Build.BuildId` (e.g. `:1`); the manual deploy path uses
+      semver (`:0.4.x`). Both push to the same `ravelin` repo + `latest`.

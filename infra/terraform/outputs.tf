@@ -39,6 +39,21 @@ output "sql_connection_string" {
   sensitive   = true
 }
 
+output "cicd_identity_name" {
+  description = "CI/CD managed identity name — pick this when creating the ADO 'Managed identity' service connection."
+  value       = azurerm_user_assigned_identity.cicd.name
+}
+
+output "cicd_identity_client_id" {
+  description = "CI/CD managed identity client (application) ID — for reference / manual federated-credential fallback."
+  value       = azurerm_user_assigned_identity.cicd.client_id
+}
+
+output "cicd_identity_principal_id" {
+  description = "CI/CD managed identity principal (object) ID."
+  value       = azurerm_user_assigned_identity.cicd.principal_id
+}
+
 output "admin_email" {
   description = "Seeded Admin login email."
   value       = var.seed_admin_email

@@ -21,7 +21,7 @@ and live on Azure.** Next up is **Stage 4b (Blazor login UI)**, then Stages 5–
 | Stage | Summary | State |
 |------|---------|-------|
 | 0 | Solution, clean architecture, walking skeleton, Dockerfile | ✅ live |
-| 1 | Terraform infra + Azure Container Apps; CI pipeline authored | ✅ live (pipeline not wired — see §6) |
+| 1 | Terraform infra + Azure Container Apps; CI pipeline | ✅ live (pipeline wired & green — see §6) |
 | 2 | Domain model + EF Core + Azure SQL | ✅ live |
 | 3 | Ingestion API (hashed API keys, dedup + auto-resolve, validation) | ✅ live |
 | 4a | Identity + JWT + RBAC (Admin/Analyst/Viewer) | ✅ live |
@@ -136,13 +136,21 @@ App config (Container App env, set by Terraform): `ConnectionStrings__RavelinDb`
 
 ## 6. Open threads (not blockers)
 
-1. **Azure DevOps pipeline (Stage 1c) is authored but NOT wired up.** `azure-pipelines.yml`
-   exists (build → `dotnet publish` container → `az containerapp update`). To activate, the
-   **user** must: create an Azure DevOps org + `ravelin` project, create an Azure RM
-   **service connection** named `ravelin-azure`, point a pipeline at the repo's YAML.
-   ⚠️ The university tenant may block the app registration a service connection needs — if
-   so, fall back to ACR scoped tokens for push and revisit ARM auth. **Do not autonomously
-   create directory identities / service principals** in the shared tenant.
+1. **Azure DevOps pipeline (Stage 1c) — ✅ WIRED & GREEN (2026-06-21).** `azure-pipelines.yml`
+   (build/test → `dotnet publish` container to ACR → `az containerapp update`) runs end-to-end
+   on push to `main`. First green run deployed `ravelin:1` (tag = `Build.BuildId`) →
+   revision `ca-ravelin-dev--0000016`, healthy.
+   - **The Entra app-registration block was real** ("Insufficient privileges … create a
+     Microsoft Entra Application"). Worked around with **managed-identity workload identity
+     federation**: Terraform (`infra/terraform/cicd.tf`) provisions a dedicated CI identity
+     `id-ravelin-dev-cicd` (AcrPush on ACR + Contributor on RG — kept OFF the app's runtime
+     pull identity). The ADO service connection `ravelin-azure` uses **Identity type =
+     Managed identity** pointing at it; ADO writes the federated credential onto the MI (an
+     ARM op, no Graph perms needed). Outputs: `terraform output cicd_identity_name /
+     cicd_identity_client_id`.
+   - The MI's `az acr login --expose-token` push path worked (no AcrPush-token fallback needed).
+   - First-run gotcha: ADO pauses to **Permit** the service connection + `ravelin-dev`
+     environment before the Image/Deploy stages start — normal, click Permit once.
 2. **Demo data exists** in the DB: projects `demo-app` (+ an API key whose raw value leaked
    into an earlier session transcript — low risk, demo only; consider rotating when a
    revoke endpoint exists) and `web-frontend`; a few findings on `demo-app`.
