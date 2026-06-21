@@ -18,6 +18,13 @@ Dockerfile
 # Node (unrelated/optional tooling)
 **/node_modules/
 
+# Terraform / IaC (never needed in the app image)
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/tfplan
+infra/
+
 # Local env / secrets — never copy into an image
 **/*.env
 **/appsettings.*.Local.json

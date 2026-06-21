@@ -83,7 +83,31 @@ Vision + all 6 technical decisions agreed. Build plan defined.
   `scripts/bootstrap-tfstate.sh` + `backend.hcl`. Azure SQL deferred to Stage 2.
 - **1b (Azure Pipeline) — authored, valid YAML.** `azure-pipelines.yml`: build/test →
   `az acr build` → `az containerapp update`. Security scanning deferred to Stage 8.
-- **1c (interactive cloud) — PENDING:** user has Azure subscription ready; needs to finish
-  creating Azure DevOps org + `ravelin` project, then `az login`, then: bootstrap state →
-  `terraform apply` → create `ravelin-azure` ARM service connection + pipeline in ADO →
-  set `acrName`/`acrLoginServer` vars from TF outputs → run pipeline → live URL.
+- **1c (interactive cloud) — PARTIALLY DONE:**
+  - Azure sub: **"Azure for Students"** (id `216b2b76-179a-438f-8d2c-b3e4d302fcb9`),
+    **University of Birmingham tenant** `b024cacf-...`. Resource providers registered.
+  - **Terraform applied — infra LIVE** (8 resources). Outputs:
+    - app_url: `https://ca-ravelin-dev.thankfulsea-7af22cac.canadacentral.azurecontainerapps.io`
+    - acr: `acrravelindevs8066d` / `acrravelindevs8066d.azurecr.io`
+    - rg: `rg-ravelin-dev`, container app: `ca-ravelin-dev`
+    - State storage: `rg-ravelin-tfstate` / `stravelintfdfe8f1bd` / container `tfstate`.
+  - **APP IS LIVE & HEALTHY** at the app_url (health 200, /api/info returns
+    environment=Production, Blazor served). Real image `ravelin:0.1.0` deployed; revision
+    `ca-ravelin-dev--0000001` healthy, scales to zero on idle.
+  - **How we built/deployed without Docker or ACR Tasks (both blocked):**
+    - `az acr build` is **blocked** on Azure for Students (`TasksOperationsNotAllowed`).
+    - Local Docker (OrbStack) won't boot its VM on macOS 27 (times out).
+    - SOLUTION: **.NET SDK container publish** (`dotnet publish -t:PublishContainer`,
+      `Microsoft.NET.Build.Containers`) builds an OCI image with **no Docker daemon** and
+      pushes straight to ACR. Auth via `az acr login --expose-token` (Owner session, no
+      service principal). Targeted `--os linux --arch x64` (Container Apps is amd64) on the
+      chiseled base. Then `az containerapp update`. The Dockerfile is kept but unused by
+      this path.
+  - **Pipeline (`azure-pipelines.yml`) rewritten** to the same Docker-less SDK-container
+    approach (build/test → `dotnet publish -t:PublishContainer` to ACR → `az containerapp
+    update`), all under one ARM service connection.
+  - **REMAINING (user-gated): Stage 1c pipeline automation.** Needs the user to: create the
+    Azure DevOps org + `ravelin` project, create the **`ravelin-azure` ARM service
+    connection** (requires app registration — may be restricted in the Birmingham tenant;
+    user must drive this, NOT autonomous), point a pipeline at `azure-pipelines.yml`, run
+    it. The app is already live via the manual path regardless.

@@ -17,9 +17,9 @@ trigger:
       - main
 
 variables:
-  azureServiceConnection: 'ravelin-azure'   # ARM service connection name
-  acrName: ''                               # TODO: terraform output acr_name (e.g. acrravelindevab12cd)
-  acrLoginServer: ''                        # TODO: terraform output acr_login_server
+  azureServiceConnection: 'ravelin-azure'   # ARM service connection name (create in ADO)
+  acrName: 'acrravelindevs8066d'            # terraform output acr_name
+  acrLoginServer: 'acrravelindevs8066d.azurecr.io'  # terraform output acr_login_server
   resourceGroup: 'rg-ravelin-dev'           # terraform output resource_group_name
   containerAppName: 'ca-ravelin-dev'        # terraform output container_app_name
   imageRepository: 'ravelin'
@@ -64,23 +64,37 @@ stages:
     displayName: Build & push image (ACR)
     dependsOn: Build
     jobs:
-      - job: acr_build
+      - job: build_push
         pool:
           vmImage: 'ubuntu-latest'
         steps:
+          # NOTE: Azure for Students blocks ACR Tasks (`az acr build`), and we don't rely
+          # on a Docker daemon. Instead we use the .NET SDK's built-in container publish
+          # (Microsoft.NET.Build.Containers) to build an OCI image and push it straight to
+          # ACR, authenticating with a short-lived token from the service connection.
+          - task: UseDotNet@2
+            displayName: Install .NET SDK
+            inputs:
+              packageType: sdk
+              version: '$(dotnetSdkVersion)'
+
           - task: AzureCLI@2
-            displayName: az acr build
+            displayName: Publish container to ACR (no Docker)
             inputs:
               azureSubscription: '$(azureServiceConnection)'
               scriptType: bash
               scriptLocation: inlineScript
               inlineScript: |
                 set -euo pipefail
-                az acr build \
-                  --registry "$(acrName)" \
-                  --image "$(imageRepository):$(tag)" \
-                  --image "$(imageRepository):latest" \
-                  --file Dockerfile .
+                TOKEN=$(az acr login --name "$(acrName)" --expose-token --query accessToken -o tsv)
+                export SDK_CONTAINER_REGISTRY_UNAME="00000000-0000-0000-0000-000000000000"
+                export SDK_CONTAINER_REGISTRY_PWORD="$TOKEN"
+                dotnet publish src/Ravelin/Ravelin.csproj -c $(buildConfiguration) \
+                  -t:PublishContainer --os linux --arch x64 \
+                  -p:ContainerRegistry=$(acrLoginServer) \
+                  -p:ContainerRepository=$(imageRepository) \
+                  '-p:ContainerImageTags="$(tag);latest"' \
+                  -p:ContainerBaseImage=mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled
 
   - stage: Deploy
     displayName: Deploy to Container Apps

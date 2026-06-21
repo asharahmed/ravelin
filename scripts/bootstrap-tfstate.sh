@@ -39,10 +39,13 @@ az storage account create \
   --allow-blob-public-access false \
   --output none
 
-# Use Azure AD auth (no account keys) to create the container.
+# Create the state container using the account key (retrieved via your az session).
+# Terraform's azurerm backend likewise retrieves this key automatically from your
+# az login, so no data-plane role assignment / propagation wait is needed.
+KEY="$(az storage account keys list --account-name "$SA" --resource-group "$RG" --query "[0].value" -o tsv)"
 az storage container create \
   --name "$CONTAINER" --account-name "$SA" \
-  --auth-mode login --output none
+  --account-key "$KEY" --output none
 
 echo "Done. Use these values in infra/terraform/backend.hcl:"
 echo

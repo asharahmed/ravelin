@@ -496,3 +496,7 @@ appsettings.*.Local.json
 
 # Terraform backend config (names your state storage)
 backend.hcl
+
+# Terraform plan output
+tfplan
+*.tfplan

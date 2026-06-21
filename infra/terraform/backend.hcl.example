@@ -5,4 +5,3 @@ resource_group_name  = "rg-ravelin-tfstate"
 storage_account_name = "stravelintfXXXXXXXX"
 container_name       = "tfstate"
 key                  = "dev.terraform.tfstate"
-use_azuread_auth     = true
