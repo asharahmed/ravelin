@@ -22,3 +22,19 @@ output "app_url" {
   description = "Public HTTPS URL of the deployed app."
   value       = "https://${azurerm_container_app.main.ingress[0].fqdn}"
 }
+
+output "sql_server_fqdn" {
+  description = "Azure SQL server FQDN."
+  value       = azurerm_mssql_server.main.fully_qualified_domain_name
+}
+
+output "sql_database_name" {
+  description = "Azure SQL database name."
+  value       = azurerm_mssql_database.main.name
+}
+
+output "sql_connection_string" {
+  description = "ADO.NET connection string for the database (used to run migrations locally)."
+  value       = local.sql_connection_string
+  sensitive   = true
+}

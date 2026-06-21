@@ -94,7 +94,7 @@ stages:
                   -p:ContainerRegistry=$(acrLoginServer) \
                   -p:ContainerRepository=$(imageRepository) \
                   '-p:ContainerImageTags="$(tag);latest"' \
-                  -p:ContainerBaseImage=mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled
+                  -p:ContainerBaseImage=mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled-extra
 
   - stage: Deploy
     displayName: Deploy to Container Apps

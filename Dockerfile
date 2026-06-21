@@ -18,9 +18,11 @@ COPY . .
 RUN dotnet publish src/Ravelin/Ravelin.csproj -c Release -o /app/publish /p:UseAppHost=false
 
 # ---- Runtime stage -----------------------------------------------------------
-# Chiseled image: distroless-style (no shell/package manager), runs as a
-# non-root user (UID 1654) by default — minimal attack surface for our security tool.
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled AS final
+# Chiseled image: distroless-style (no shell/package manager), runs as a non-root user
+# (UID 1654) by default — minimal attack surface. The "-extra" variant adds ICU + tzdata,
+# which Microsoft.Data.SqlClient requires (otherwise the app runs in globalization-invariant
+# mode and DB access throws "Globalization Invariant Mode is not supported").
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled-extra AS final
 WORKDIR /app
 COPY --from=build /app/publish .
 

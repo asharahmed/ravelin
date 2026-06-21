@@ -57,6 +57,18 @@ variable "max_replicas" {
   default     = 1
 }
 
+variable "sql_admin_login" {
+  description = "Azure SQL administrator login name."
+  type        = string
+  default     = "ravelinadmin"
+}
+
+variable "client_ip_address" {
+  description = "Optional public IP allowed through the SQL firewall (for running migrations from a workstation). Empty disables the rule."
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags applied to all resources."
   type        = map(string)

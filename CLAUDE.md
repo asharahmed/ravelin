@@ -57,6 +57,27 @@ the vision doc wins. Keep both updated as decisions are made.
 - Keep the GitHub repo and Azure DevOps project **public** to ease free pipeline minutes.
 - Azure SQL serverless and Container Apps **cold-start** after idle — expected/acceptable.
 
+## Stage 2 — DONE (domain model + Azure SQL, live)
+- **Domain** (`Ravelin.Domain`): entities Project, Scan, Finding, SlaPolicy + enums
+  (Severity, FindingStatus, ScanSource). Finding dedup identity = (ProjectId,
+  VulnerabilityId, PackageName, PackageVersion).
+- **Infrastructure** (`Ravelin.Infrastructure`): EF Core 10 (SqlServer), `RavelinDbContext`,
+  IEntityTypeConfiguration classes (unique indexes incl. dedup; SLA seed via HasData),
+  design-time factory (reads `RAVELIN_DB_CONNECTION`). Migration `InitialCreate`.
+- **Azure SQL** added to Terraform (`sql.tf`): serverless `GP_S_Gen5_1`, auto-pause 60m,
+  firewall (AllowAzureServices + optional client IP via `client_ip_address` var). Conn
+  string delivered to Container App as secret `db-connection` → env
+  `ConnectionStrings__RavelinDb`. Server `sql-ravelin-dev-s8066d`, db `sqldb-ravelin-dev`.
+- Migration applied to Azure SQL; app verified live: `/api/db/status` →
+  `{connected:true, slaPolicies:4, ...}`. Current deployed image **ravelin:0.2.3**.
+- **GOTCHA fixed:** chiseled base image lacks ICU → SqlClient throws "Globalization
+  Invariant Mode is not supported." Fixed by base image **`aspnet:10.0-noble-chiseled-extra`**
+  + `<InvariantGlobalization>false</InvariantGlobalization>` in `src/Ravelin/Ravelin.csproj`
+  (applied to Dockerfile + pipeline too).
+- **Tech debt (→ Stage 8):** app uses SQL admin creds via connection-string secret;
+  harden to managed-identity auth + least-priv DB user + Key Vault. `/api/db/status` is a
+  temporary diagnostic (coarse status only); replaced by real API in Stage 3.
+
 ## Current status
 Vision + all 6 technical decisions agreed. Build plan defined.
 **Stage 0 (foundations / walking skeleton) — code complete & verified natively:**

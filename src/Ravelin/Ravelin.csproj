@@ -5,6 +5,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <!-- SqlClient requires ICU globalization; pair with a base image that includes ICU
+         (the *-chiseled-extra runtime). Without this, the app runs in invariant mode and
+         DB access throws "Globalization Invariant Mode is not supported." -->
+    <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Ravelin.Domain\Ravelin.Domain.csproj" />
     <ProjectReference Include="..\Ravelin.Shared\Ravelin.Shared.csproj" />
+    <ProjectReference Include="..\Ravelin.Infrastructure\Ravelin.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

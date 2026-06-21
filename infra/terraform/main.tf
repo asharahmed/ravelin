@@ -77,6 +77,13 @@ resource "azurerm_container_app" "main" {
     identity = azurerm_user_assigned_identity.app.id
   }
 
+  # DB connection string delivered to the app as a secret env var.
+  # (Stage 8 replaces this with managed-identity auth + Key Vault.)
+  secret {
+    name  = "db-connection"
+    value = local.sql_connection_string
+  }
+
   ingress {
     external_enabled = true
     target_port      = var.target_port
@@ -97,6 +104,11 @@ resource "azurerm_container_app" "main" {
       image  = var.container_image
       cpu    = var.container_cpu
       memory = var.container_memory
+
+      env {
+        name        = "ConnectionStrings__RavelinDb"
+        secret_name = "db-connection"
+      }
 
       liveness_probe {
         transport = "HTTP"

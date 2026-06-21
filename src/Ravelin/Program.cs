@@ -1,5 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using Ravelin.Client.Pages;
 using Ravelin.Components;
+using Ravelin.Infrastructure;
 using Ravelin.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,6 +12,13 @@ builder.Services.AddRazorComponents()
 
 // Liveness/readiness probe used locally and by Azure Container Apps (Stage 1).
 builder.Services.AddHealthChecks();
+
+// EF Core / Azure SQL. Connection string comes from configuration
+// ("ConnectionStrings:RavelinDb"); in Azure Container Apps it's injected as the
+// env var ConnectionStrings__RavelinDb (a secret). Migrations are applied out-of-band.
+builder.Services.AddDbContext<RavelinDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("RavelinDb")
+        ?? "Server=(unconfigured)"));
 
 var app = builder.Build();
 
@@ -44,6 +53,24 @@ var apiInfo = new ApiInfo(
     Environment: app.Environment.EnvironmentName);
 
 app.MapGet("/api/info", () => apiInfo);
+
+// DB connectivity check (Stage 2 verification; superseded by real endpoints in Stage 3).
+// Returns only a coarse status — no exception detail — to avoid information disclosure.
+app.MapGet("/api/db/status", async (RavelinDbContext db) =>
+{
+    if (!await db.Database.CanConnectAsync())
+    {
+        return Results.Problem("Database not reachable.", statusCode: 503);
+    }
+
+    return Results.Ok(new
+    {
+        connected = true,
+        slaPolicies = await db.SlaPolicies.CountAsync(),
+        projects = await db.Projects.CountAsync(),
+        findings = await db.Findings.CountAsync(),
+    });
+});
 // ------------------------------------------------------------------------------
 
 app.MapRazorComponents<App>()

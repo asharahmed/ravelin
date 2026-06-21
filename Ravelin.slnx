@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Ravelin.Client/Ravelin.Client.csproj" />
     <Project Path="src/Ravelin.Domain/Ravelin.Domain.csproj" />
+    <Project Path="src/Ravelin.Infrastructure/Ravelin.Infrastructure.csproj" />
     <Project Path="src/Ravelin.Shared/Ravelin.Shared.csproj" />
     <Project Path="src/Ravelin/Ravelin.csproj" />
   </Folder>
