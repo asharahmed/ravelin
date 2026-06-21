@@ -24,4 +24,10 @@ public record FindingDto
     public DateTimeOffset? ResolvedAt { get; init; }
     public DateTimeOffset? SlaDueAt { get; init; }
     public required bool SlaBreached { get; init; }
+
+    /// <summary>SLA standing: NotApplicable / OnTrack / DueSoon / Breached.</summary>
+    public required string SlaState { get; init; }
+
+    /// <summary>Whole days until the SLA deadline; negative when overdue, null when N/A.</summary>
+    public int? DaysToSla { get; init; }
 }

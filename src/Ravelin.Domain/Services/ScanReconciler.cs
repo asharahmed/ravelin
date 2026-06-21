@@ -117,5 +117,5 @@ public static class ScanReconciler
 
     private static DateTimeOffset? ComputeDue(
         DateTimeOffset from, Severity severity, IReadOnlyDictionary<Severity, int> slaDays) =>
-        slaDays.TryGetValue(severity, out var days) ? from.AddDays(days) : null;
+        SlaEvaluator.ComputeDueDate(from, severity, slaDays);
 }

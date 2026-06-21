@@ -144,6 +144,26 @@ the vision doc wins. Keep both updated as decisions are made.
 - Client is **Blazor Web App, InteractiveWebAssembly, prerender:false** — auth components run
   in WASM only, so the host needs no AuthenticationStateProvider.
 
+## Stage 5 — DONE (SLA engine + triage); deploy pending
+- **Domain** (`Ravelin.Domain/Services`): `SlaEvaluator` (pure) — `SlaState`
+  (NotApplicable/OnTrack/DueSoon/Breached), `Evaluate(status,dueAt,now,window)` returns
+  state + whole `DaysRemaining` (negative=overdue); `ComputeDueDate` (now reused by
+  `ScanReconciler`). `FindingTriage.Apply(finding,target,note,now)` — validated transitions
+  (Open/Resolved/FalsePositive/AcceptedRisk); **note required** to suppress (FP/AcceptedRisk);
+  sets/clears `ResolvedAt`. SLA *due date* is still a snapshot computed at ingestion; breach
+  is evaluated on read (time-dependent).
+- **Contracts** (`Ravelin.Shared/Contracts`): `FindingDto` gains `SlaState` + `DaysToSla`;
+  new `TriageFindingRequest`, `SlaPolicyDto`, `UpdateSlaPoliciesRequest`, `SlaSummaryDto`.
+- **API** (`RavelinEndpoints.MapSla`): `GET /api/sla-policies` (any auth),
+  `PUT /api/sla-policies` (Admin; re-baselines open findings' `SlaDueAt` from new days),
+  `POST /api/projects/{key}/findings/{id}/triage` (Admin+Analyst), `GET
+  /api/projects/{key}/sla-summary` (any auth; open-only, compliance% = (open-breached)/open).
+  No schema migration (all columns already existed).
+- **Tests:** `SlaEvaluatorTests` + `FindingTriageTests` → **28 total green** (was 10).
+- **Verified locally vs Azure SQL:** policies read/PUT, summary (compliance 100%), findings
+  carry SLA state, triage works, RBAC (viewer 403 on triage+PUT, note-required 400). Demo
+  data restored after test.
+
 ## Current status
 Vision + all 6 technical decisions agreed. Build plan defined.
 **Stage 0 (foundations / walking skeleton) — code complete & verified natively:**

@@ -5,6 +5,7 @@ using Ravelin.Auth;
 using Ravelin.Domain.Entities;
 using Ravelin.Domain.Enums;
 using Ravelin.Domain.Ingestion;
+using Ravelin.Domain.Services;
 using Ravelin.Infrastructure;
 using Ravelin.Infrastructure.Services;
 using Ravelin.Shared;
@@ -22,6 +23,7 @@ public static class RavelinEndpoints
         MapIngestion(app);
         MapAdmin(app);
         MapReads(app);
+        MapSla(app);
     }
 
     // --- Human auth: email/password -> JWT ----------------------------------------------
@@ -216,6 +218,145 @@ public static class RavelinEndpoints
         });
     }
 
+    // --- SLA engine + triage (Stage 5) --------------------------------------------------
+    private static void MapSla(WebApplication app)
+    {
+        // SLA policy: any authenticated user can read; only Admin can change it.
+        app.MapGet("/api/sla-policies", async (RavelinDbContext db) =>
+        {
+            var policies = await db.SlaPolicies
+                .OrderByDescending(p => p.Severity)
+                .Select(p => new SlaPolicyDto
+                {
+                    Severity = p.Severity.ToString(),
+                    RemediationDays = p.RemediationDays,
+                })
+                .ToListAsync();
+
+            return Results.Ok(policies);
+        })
+        .RequireAuthorization();
+
+        app.MapPut("/api/sla-policies", async (UpdateSlaPoliciesRequest req, RavelinDbContext db) =>
+        {
+            if (req.Policies is null || req.Policies.Count == 0)
+            {
+                return Results.BadRequest("At least one policy is required.");
+            }
+
+            var updates = new Dictionary<Severity, int>();
+            foreach (var p in req.Policies)
+            {
+                if (!Enum.TryParse<Severity>(p.Severity, ignoreCase: true, out var sev) || sev == Severity.Unknown)
+                {
+                    return Results.BadRequest($"Unknown severity '{p.Severity}'.");
+                }
+                if (p.RemediationDays < 1)
+                {
+                    return Results.BadRequest($"RemediationDays for {sev} must be at least 1.");
+                }
+                updates[sev] = p.RemediationDays;
+            }
+
+            var policies = await db.SlaPolicies.ToListAsync();
+            foreach (var policy in policies)
+            {
+                if (updates.TryGetValue(policy.Severity, out var days))
+                {
+                    policy.RemediationDays = days;
+                }
+            }
+
+            // Re-baseline open findings so the new deadline applies immediately (deadline is a
+            // snapshot computed from FirstDetected; triaged/resolved findings are left alone).
+            var slaDays = policies.ToDictionary(p => p.Severity, p => p.RemediationDays);
+            var openFindings = await db.Findings.Where(f => f.Status == FindingStatus.Open).ToListAsync();
+            foreach (var finding in openFindings)
+            {
+                finding.SlaDueAt = SlaEvaluator.ComputeDueDate(finding.FirstDetectedAt, finding.Severity, slaDays);
+            }
+
+            await db.SaveChangesAsync();
+
+            return Results.Ok(policies
+                .OrderByDescending(p => p.Severity)
+                .Select(p => new SlaPolicyDto { Severity = p.Severity.ToString(), RemediationDays = p.RemediationDays })
+                .ToList());
+        })
+        .RequireAuthorization(policy => policy.RequireRole(RavelinRoles.Admin))
+        .DisableAntiforgery();
+
+        // Triage a finding (Analyst or Admin). Viewer is read-only.
+        app.MapPost("/api/projects/{key}/findings/{id:guid}/triage", async (
+            string key, Guid id, TriageFindingRequest req, RavelinDbContext db) =>
+        {
+            if (!Enum.TryParse<FindingStatus>(req.Status, ignoreCase: true, out var target))
+            {
+                return Results.BadRequest($"Unknown status '{req.Status}'.");
+            }
+
+            var finding = await db.Findings
+                .Include(f => f.Project)
+                .FirstOrDefaultAsync(f => f.Id == id && f.Project!.Key == key);
+            if (finding is null)
+            {
+                return Results.NotFound($"Finding '{id}' not found in project '{key}'.");
+            }
+
+            var outcome = FindingTriage.Apply(finding, target, req.Note, DateTimeOffset.UtcNow);
+            if (!outcome.Success)
+            {
+                return Results.BadRequest(outcome.Error);
+            }
+
+            await db.SaveChangesAsync();
+            return Results.Ok(ToDto(finding, DateTimeOffset.UtcNow));
+        })
+        .RequireAuthorization(policy => policy.RequireRole(RavelinRoles.Admin, RavelinRoles.Analyst))
+        .DisableAntiforgery();
+
+        // Per-project SLA posture (open findings only).
+        app.MapGet("/api/projects/{key}/sla-summary", async (string key, RavelinDbContext db) =>
+        {
+            var project = await db.Projects.FirstOrDefaultAsync(p => p.Key == key);
+            if (project is null)
+            {
+                return Results.NotFound($"Project '{key}' not found.");
+            }
+
+            var open = await db.Findings
+                .Where(f => f.ProjectId == project.Id && f.Status == FindingStatus.Open)
+                .Select(f => f.SlaDueAt)
+                .ToListAsync();
+
+            var now = DateTimeOffset.UtcNow;
+            int onTrack = 0, dueSoon = 0, breached = 0;
+            foreach (var dueAt in open)
+            {
+                switch (SlaEvaluator.Evaluate(FindingStatus.Open, dueAt, now, SlaEvaluator.DefaultDueSoonWindow).State)
+                {
+                    case SlaState.Breached: breached++; break;
+                    case SlaState.DueSoon: dueSoon++; break;
+                    default: onTrack++; break;
+                }
+            }
+
+            var total = open.Count;
+            var compliance = total == 0 ? 100.0 : Math.Round((double)(total - breached) / total * 100, 1);
+
+            return Results.Ok(new SlaSummaryDto
+            {
+                ProjectKey = key,
+                Open = total,
+                OnTrack = onTrack,
+                DueSoon = dueSoon,
+                Breached = breached,
+                CompliancePercent = compliance,
+            });
+        })
+        .RequireAuthorization();
+    }
+
     // --- Helpers ------------------------------------------------------------------------
     private static Severity ParseSeverity(string? value) => value?.Trim().ToLowerInvariant() switch
     {
@@ -235,20 +376,26 @@ public static class RavelinEndpoints
         OpenFindings = openFindings,
     };
 
-    private static FindingDto ToDto(Finding f, DateTimeOffset now) => new()
+    private static FindingDto ToDto(Finding f, DateTimeOffset now)
     {
-        Id = f.Id,
-        VulnerabilityId = f.VulnerabilityId,
-        PackageName = f.PackageName,
-        PackageVersion = f.PackageVersion,
-        Title = f.Title,
-        Severity = f.Severity.ToString(),
-        Status = f.Status.ToString(),
-        CvssScore = f.CvssScore,
-        FixedVersion = f.FixedVersion,
-        FirstDetectedAt = f.FirstDetectedAt,
-        ResolvedAt = f.ResolvedAt,
-        SlaDueAt = f.SlaDueAt,
-        SlaBreached = f.Status == FindingStatus.Open && f.SlaDueAt is not null && f.SlaDueAt < now,
-    };
+        var sla = SlaEvaluator.Evaluate(f, now);
+        return new FindingDto
+        {
+            Id = f.Id,
+            VulnerabilityId = f.VulnerabilityId,
+            PackageName = f.PackageName,
+            PackageVersion = f.PackageVersion,
+            Title = f.Title,
+            Severity = f.Severity.ToString(),
+            Status = f.Status.ToString(),
+            CvssScore = f.CvssScore,
+            FixedVersion = f.FixedVersion,
+            FirstDetectedAt = f.FirstDetectedAt,
+            ResolvedAt = f.ResolvedAt,
+            SlaDueAt = f.SlaDueAt,
+            SlaBreached = sla.IsBreached,
+            SlaState = sla.State.ToString(),
+            DaysToSla = sla.DaysRemaining,
+        };
+    }
 }
