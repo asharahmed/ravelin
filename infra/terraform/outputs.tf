@@ -38,3 +38,9 @@ output "sql_connection_string" {
   value       = local.sql_connection_string
   sensitive   = true
 }
+
+output "bootstrap_token" {
+  description = "Temporary Stage 3 admin bootstrap token (X-Bootstrap-Token header)."
+  value       = random_password.bootstrap.result
+  sensitive   = true
+}

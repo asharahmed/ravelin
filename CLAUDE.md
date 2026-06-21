@@ -78,6 +78,29 @@ the vision doc wins. Keep both updated as decisions are made.
   harden to managed-identity auth + least-priv DB user + Key Vault. `/api/db/status` is a
   temporary diagnostic (coarse status only); replaced by real API in Stage 3.
 
+## Stage 3 — DONE (ingestion API, live)
+- **Domain:** `ScanReconciler` (pure dedup + auto-resolve + reopen + triage-respect),
+  `IncomingFinding`, `ApiKey` entity. 8 reconciler unit tests (10 total, all green).
+- **Infrastructure:** `ApiKeyService` (256-bit keys, SHA-256 hash, prefix), `IngestionService`
+  (loads SLA policies + existing findings → reconcile → persist + record Scan),
+  `AddApiKeys` migration (applied to Azure SQL), `AddRavelinInfrastructure` DI extension.
+- **API:** `ApiKeyAuthenticationHandler` (scheme "ApiKey", X-Api-Key / Bearer; project from
+  the key, never the route). Endpoints: `POST /api/ingest` (API-key auth, input validation,
+  5000-finding cap), admin `POST /api/admin/projects` + `/projects/{key}/api-keys` and reads
+  `GET /api/projects`, `/api/projects/{key}/findings` (bootstrap-token gated via
+  `BootstrapTokenFilter`, constant-time compare). DTOs in `Ravelin.Shared/Contracts`.
+- **Verified live (image ravelin:0.3.2):** created project demo-app + API key; scan#1
+  created 2; scan#2 → created 1, resolved 1 (auto), seen 1 → dedup + auto-resolve work.
+  Auth matrix: no/bad key ingest → 401, no/bad token read → 401, good → 200. Confirmed
+  unauthenticated ingestion writes NO data.
+- **Bugs fixed this stage:** (1) `.DisableAntiforgery()` on token APIs; (2) scoped
+  `UseStatusCodePagesWithReExecute` to non-/api paths (it was mangling API 401s into 400 by
+  re-executing as POST into the Blazor not-found page).
+- **Notes / debt:** bootstrap-token admin gate is temporary → replaced by Identity+RBAC in
+  Stage 4. No API-key revoke endpoint yet. DataProtection keys not persisted across
+  container restarts (log warning) — address when JWT signing keys arrive (Stage 4) or via
+  Key Vault (Stage 8). Demo API key value appeared in session output — fine (demo data).
+
 ## Current status
 Vision + all 6 technical decisions agreed. Build plan defined.
 **Stage 0 (foundations / walking skeleton) — code complete & verified natively:**

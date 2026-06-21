@@ -10,6 +10,13 @@ resource "random_string" "suffix" {
   special = false
 }
 
+# Temporary Stage 3 admin/bootstrap token (header X-Bootstrap-Token). Removed in Stage 4
+# when ASP.NET Core Identity + RBAC replace it.
+resource "random_password" "bootstrap" {
+  length  = 32
+  special = false
+}
+
 resource "azurerm_resource_group" "main" {
   name     = "rg-${local.name_prefix}"
   location = var.location
@@ -84,6 +91,12 @@ resource "azurerm_container_app" "main" {
     value = local.sql_connection_string
   }
 
+  # Temporary Stage 3 admin bootstrap token.
+  secret {
+    name  = "bootstrap-token"
+    value = random_password.bootstrap.result
+  }
+
   ingress {
     external_enabled = true
     target_port      = var.target_port
@@ -108,6 +121,11 @@ resource "azurerm_container_app" "main" {
       env {
         name        = "ConnectionStrings__RavelinDb"
         secret_name = "db-connection"
+      }
+
+      env {
+        name        = "Ravelin__BootstrapToken"
+        secret_name = "bootstrap-token"
       }
 
       liveness_probe {

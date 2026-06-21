@@ -1,6 +1,7 @@
-using Microsoft.EntityFrameworkCore;
+using Ravelin.Auth;
 using Ravelin.Client.Pages;
 using Ravelin.Components;
+using Ravelin.Endpoints;
 using Ravelin.Infrastructure;
 using Ravelin.Shared;
 
@@ -13,12 +14,17 @@ builder.Services.AddRazorComponents()
 // Liveness/readiness probe used locally and by Azure Container Apps (Stage 1).
 builder.Services.AddHealthChecks();
 
-// EF Core / Azure SQL. Connection string comes from configuration
-// ("ConnectionStrings:RavelinDb"); in Azure Container Apps it's injected as the
-// env var ConnectionStrings__RavelinDb (a secret). Migrations are applied out-of-band.
-builder.Services.AddDbContext<RavelinDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("RavelinDb")
-        ?? "Server=(unconfigured)"));
+// EF Core / Azure SQL + application services. Connection string comes from configuration
+// ("ConnectionStrings:RavelinDb"); in Azure Container Apps it's injected as the env var
+// ConnectionStrings__RavelinDb (a secret). Migrations are applied out-of-band.
+builder.Services.AddRavelinInfrastructure(builder.Configuration.GetConnectionString("RavelinDb"));
+
+// API-key authentication for pipeline ingestion (project-scoped). Human auth (Identity +
+// JWT/RBAC) is added in Stage 4.
+builder.Services.AddAuthentication()
+    .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(
+        ApiKeyAuthenticationHandler.SchemeName, _ => { });
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
@@ -33,17 +39,22 @@ else
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
-app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+// Friendly status-code pages apply to the Blazor UI only. API routes (/api/*) must return
+// real status codes / problem details, not re-execute (as the original method) into an HTML
+// page — which would turn a 401 into a 400 and break API clients.
+app.UseWhen(
+    ctx => !ctx.Request.Path.StartsWithSegments("/api"),
+    branch => branch.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true));
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
 
-// --- API surface (walking skeleton) -------------------------------------------
-// Health probe (no auth) and a tiny info endpoint returning the shared ApiInfo
-// contract. This is the seed of the API-first backend; richer endpoints
-// (ingestion, findings, SLAs) arrive in later stages.
+// --- API surface --------------------------------------------------------------
+// Health probe + info endpoint (anonymous).
 app.MapHealthChecks("/health");
 
 var apiInfo = new ApiInfo(
@@ -54,23 +65,8 @@ var apiInfo = new ApiInfo(
 
 app.MapGet("/api/info", () => apiInfo);
 
-// DB connectivity check (Stage 2 verification; superseded by real endpoints in Stage 3).
-// Returns only a coarse status — no exception detail — to avoid information disclosure.
-app.MapGet("/api/db/status", async (RavelinDbContext db) =>
-{
-    if (!await db.Database.CanConnectAsync())
-    {
-        return Results.Problem("Database not reachable.", statusCode: 503);
-    }
-
-    return Results.Ok(new
-    {
-        connected = true,
-        slaPolicies = await db.SlaPolicies.CountAsync(),
-        projects = await db.Projects.CountAsync(),
-        findings = await db.Findings.CountAsync(),
-    });
-});
+// Ingestion (API key), admin + reads (bootstrap token). See Endpoints/RavelinEndpoints.cs.
+app.MapRavelinApi();
 // ------------------------------------------------------------------------------
 
 app.MapRazorComponents<App>()

@@ -13,6 +13,7 @@ public class RavelinDbContext(DbContextOptions<RavelinDbContext> options) : DbCo
     public DbSet<Scan> Scans => Set<Scan>();
     public DbSet<Finding> Findings => Set<Finding>();
     public DbSet<SlaPolicy> SlaPolicies => Set<SlaPolicy>();
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
