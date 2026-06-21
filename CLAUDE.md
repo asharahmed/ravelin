@@ -208,3 +208,8 @@ Vision + all 6 technical decisions agreed. Build plan defined.
       environment before Image/Deploy stages run.
     - Note: pipeline tags images by `Build.BuildId` (e.g. `:1`); the manual deploy path uses
       semver (`:0.4.x`). Both push to the same `ravelin` repo + `latest`.
+    - ⚠️ **Parallelism gate (2026-06-21):** runs after #1 hang on "Acquiring an agent" — org
+      has no granted Microsoft-hosted parallelism, and **public projects are blocked by the
+      Birmingham tenant policy** (so going public is not a fix). Resolution: request the free
+      grant (`https://aka.ms/azpipelines-parallelism-request`, ~2-3 business days); deploy via
+      the manual Docker-less path meanwhile. See `next_steps.md` §6.1.

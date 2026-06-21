@@ -151,6 +151,17 @@ App config (Container App env, set by Terraform): `ConnectionStrings__RavelinDb`
    - The MI's `az acr login --expose-token` push path worked (no AcrPush-token fallback needed).
    - First-run gotcha: ADO pauses to **Permit** the service connection + `ravelin-dev`
      environment before the Image/Deploy stages start — normal, click Permit once.
+   - ⚠️ **PARALLELISM GATE (discovered deploying 4b, 2026-06-21).** After run #1, later runs
+     hang on *"Acquiring an agent from the cloud"* — the org has **no granted Microsoft-hosted
+     parallelism** (Parallel-jobs screen: Private→MS-hosted "free tier 1 job/1800min" but
+     **0 consumed** = entitlement shown, not granted; Public→MS-hosted **0**). **Public is
+     blocked** by the Birmingham tenant policy ("Allow public projects" can't be enabled —
+     same wall as app registration), so going public is NOT a fix. **Resolution chosen:
+     request the free grant** at `https://aka.ms/azpipelines-parallelism-request` (org owner,
+     Private project; ~2-3 business days) → then the YAML auto-deploys on push, no changes.
+     **Until granted, deploy via the manual Docker-less path (§4).** Cancel any stuck queued
+     run so it doesn't linger. (Alt not taken: self-hosted agent — 1 free slot — would need
+     `pool: name: 'Default'` in the YAML + a registered agent on a dev machine.)
 2. **Demo data exists** in the DB: projects `demo-app` (+ an API key whose raw value leaked
    into an earlier session transcript — low risk, demo only; consider rotating when a
    revoke endpoint exists) and `web-frontend`; a few findings on `demo-app`.
