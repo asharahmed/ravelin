@@ -1,6 +1,28 @@
-﻿<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
-    <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
-        <FocusOnNavigate RouteData="routeData" Selector="h1" />
-    </Found>
-</Router>
+<CascadingAuthenticationState>
+    <Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+                <NotAuthorized>
+                    @if (context.User.Identity?.IsAuthenticated != true)
+                    {
+                        <RedirectToLogin />
+                    }
+                    else
+                    {
+                        <LayoutView Layout="typeof(Layout.MainLayout)">
+                            <div class="alert alert-warning m-4" role="alert">
+                                You don't have permission to view this page.
+                            </div>
+                        </LayoutView>
+                    }
+                </NotAuthorized>
+                <Authorizing>
+                    <LayoutView Layout="typeof(Layout.MainLayout)">
+                        <p class="m-4"><em>Authorizing…</em></p>
+                    </LayoutView>
+                </Authorizing>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        </Found>
+    </Router>
+</CascadingAuthenticationState>

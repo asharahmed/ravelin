@@ -120,10 +120,29 @@ the vision doc wins. Keep both updated as decisions are made.
   demo_email/demo_password (sensitive). `terraform output -raw admin_password` to log in.
 - **Verified live (image ravelin:0.4.3):** admin login→JWT→create project 201 / create
   api-key 200; viewer create 403, viewer read 200; no-token 401; bad login 401.
-- **REMAINING — Stage 4b:** Blazor client login UI (login page, token storage,
-  AuthenticationStateProvider, attach Bearer to HttpClient, AuthorizeView). Server auth done.
 - **Debt:** JWT signing key is symmetric in a Container App secret (→ Key Vault in Stage 8);
   no token refresh yet; DataProtection keys not persisted across restarts.
+
+## Stage 4b — DONE (Blazor login UI)
+- Client auth in `src/Ravelin.Client/Auth/`: `TokenStore` (JWT in localStorage via JS interop),
+  `JwtParser` (decode payload claims; NO client signature check — server validates every call),
+  `JwtAuthenticationStateProvider` (ClaimsPrincipal with roleType `"role"`/nameType `"email"`;
+  drops expired tokens), `AuthService` (login/logout → store token → `NotifyAuthChanged`),
+  `TokenHandler` (`DelegatingHandler` adding `Authorization: Bearer`).
+- DI (`Program.cs`): `AddAuthorizationCore`; HttpClient via `IHttpClientFactory`
+  (`AddHttpClient("RavelinApi").AddHttpMessageHandler<TokenHandler>()`). New packages:
+  `Microsoft.AspNetCore.Components.Authorization` + `Microsoft.Extensions.Http` (10.0.x).
+- UI: `/login` (`EditForm`+DataAnnotations), `Routes.razor` → `CascadingAuthenticationState` +
+  `AuthorizeRouteView` (unauth → `RedirectToLogin` w/ `returnUrl`; wrong role → warning),
+  `NavMenu` Sign in/out + Projects link via `AuthorizeView`, protected `Projects.razor`
+  (`@attribute [Authorize]`, admin-only note via `<AuthorizeView Roles="Admin">`).
+- **Verified server-side vs live Azure SQL** (admin→Admin; `/api/projects` 401 w/o token, 200
+  w/ bearer → web-frontend/demo-app; demo→Viewer; bad pw→401; WASM shell served). Build clean
+  (0 warn), 10 tests green. Browser click-through is the final user check on the live URL.
+- **GOTCHA:** reference `RedirectToLogin.razor` as bare `<RedirectToLogin />` (with
+  `@using Ravelin.Client.Pages` in `_Imports`), NOT `<Pages.RedirectToLogin />` → RZ10012.
+- Client is **Blazor Web App, InteractiveWebAssembly, prerender:false** — auth components run
+  in WASM only, so the host needs no AuthenticationStateProvider.
 
 ## Current status
 Vision + all 6 technical decisions agreed. Build plan defined.

@@ -1,0 +1,77 @@
+@page "/login"
+@using System.ComponentModel.DataAnnotations
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+<PageTitle>Sign in — Ravelin</PageTitle>
+
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <h1>Sign in</h1>
+        <p class="text-muted">Use your Ravelin account to access projects and findings.</p>
+
+        <EditForm Model="model" OnValidSubmit="SubmitAsync">
+            <DataAnnotationsValidator />
+
+            @if (error is not null)
+            {
+                <div class="alert alert-danger" role="alert">@error</div>
+            }
+
+            <div class="mb-3">
+                <label class="form-label" for="email">Email</label>
+                <InputText id="email" class="form-control" @bind-Value="model.Email"
+                           autocomplete="username" />
+                <ValidationMessage For="() => model.Email" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" for="password">Password</label>
+                <InputText id="password" type="password" class="form-control"
+                           @bind-Value="model.Password" autocomplete="current-password" />
+                <ValidationMessage For="() => model.Password" />
+            </div>
+
+            <button class="btn btn-primary" type="submit" disabled="@busy">
+                @(busy ? "Signing in…" : "Sign in")
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    private readonly LoginModel model = new();
+    private string? error;
+    private bool busy;
+
+    private async Task SubmitAsync()
+    {
+        busy = true;
+        error = null;
+
+        error = await Auth.LoginAsync(new LoginRequest
+        {
+            Email = model.Email,
+            Password = model.Password,
+        });
+
+        busy = false;
+
+        if (error is null)
+        {
+            Nav.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "" : ReturnUrl);
+        }
+    }
+
+    private sealed class LoginModel
+    {
+        [Required, EmailAddress]
+        public string Email { get; set; } = string.Empty;
+
+        [Required]
+        public string Password { get; set; } = string.Empty;
+    }
+}

@@ -25,8 +25,8 @@ and live on Azure.** Next up is **Stage 4b (Blazor login UI)**, then Stages 5–
 | 2 | Domain model + EF Core + Azure SQL | ✅ live |
 | 3 | Ingestion API (hashed API keys, dedup + auto-resolve, validation) | ✅ live |
 | 4a | Identity + JWT + RBAC (Admin/Analyst/Viewer) | ✅ live |
-| 4b | Blazor login UI | ⬜ **next** |
-| 5 | SLA engine + triage workflow | ⬜ |
+| 4b | Blazor login UI | ✅ live |
+| 5 | SLA engine + triage workflow | ⬜ **next** |
 | 6 | Dashboards | ⬜ |
 | 7 | Compliance report export (PDF/shareable) | ⬜ |
 | 8 | DevSecOps hardening (pipeline scanners, Key Vault, MI→SQL) | ⬜ |
@@ -169,38 +169,31 @@ App config (Container App env, set by Terraform): `ConnectionStrings__RavelinDb`
 
 ---
 
-## 8. IMMEDIATE NEXT TASK — Stage 4b: Blazor login UI
+## 8. Stage 4b — DONE (Blazor login UI). NEXT: Stage 5 (SLA engine + triage)
 
-**Goal:** a person can log in through the browser; the UI reflects auth state and role.
-Server side is done (`POST /api/auth/login` → JWT; RBAC enforced). This is client plumbing in
-`src/Ravelin.Client`.
+**Stage 4b shipped (client plumbing in `src/Ravelin.Client`, all in `Auth/`):**
+- `TokenStore` (JWT in localStorage via `IJSRuntime`), `JwtParser` (decode payload claims, no
+  client-side signature check — server validates every call), `JwtAuthenticationStateProvider`
+  (builds `ClaimsPrincipal`; roleType `"role"`, nameType `"email"`; drops expired tokens),
+  `AuthService` (login/logout → store token → `NotifyAuthChanged`), `TokenHandler`
+  (`DelegatingHandler` attaching `Authorization: Bearer`).
+- DI: `AddAuthorizationCore`; HttpClient is now built via `IHttpClientFactory`
+  (`AddHttpClient("RavelinApi").AddHttpMessageHandler<TokenHandler>()`) — needs the
+  `Microsoft.Extensions.Http` + `Microsoft.AspNetCore.Components.Authorization` packages.
+- UI: `/login` page (`EditForm` + DataAnnotations), `Routes.razor` wrapped in
+  `CascadingAuthenticationState` + `AuthorizeRouteView` (unauth → `RedirectToLogin` with
+  `returnUrl`; wrong role → warning), `NavMenu` shows Sign in / Sign out + "Projects" link via
+  `AuthorizeView`, protected `Projects.razor` (`@attribute [Authorize]`, role-gated admin note
+  via `<AuthorizeView Roles="Admin">`).
+- **Verified server-side against live Azure SQL** (admin login→Admin role; `/api/projects` 401
+  without token, 200 with bearer; demo→Viewer; bad pw→401; WASM shell served). Browser
+  click-through is the user's final check on the live URL.
+- Gotcha to keep: `RedirectToLogin.razor` referenced as bare `<RedirectToLogin />` (with
+  `@using Ravelin.Client.Pages` in `_Imports`), not `<Pages.RedirectToLogin />` (RZ10012).
 
-Suggested steps (verify against current Blazor WASM docs via `ctx7`/find-docs — the client is
-**Blazor Web App, InteractiveWebAssembly, prerender disabled**):
-
-1. **Token storage** — store the JWT in browser `localStorage` (via `IJSRuntime` interop or a
-   small wrapper). Avoid heavy deps; a tiny JS interop is fine.
-2. **`AuthenticationStateProvider`** — custom provider that reads the stored JWT, parses
-   claims (incl. `role`), and exposes auth state. Clear on logout/expiry.
-3. **Login page** (`/login`) — email + password form → `POST /api/auth/login` → store token →
-   notify auth state → redirect. Show error on 401. Use the `LoginRequest`/`LoginResponse`
-   contracts in `Ravelin.Shared.Contracts`.
-4. **Attach Bearer token** — a `DelegatingHandler` on the `HttpClient` that adds
-   `Authorization: Bearer <token>` to API calls (the client already registers an HttpClient
-   in `src/Ravelin.Client/Program.cs`).
-5. **`AuthorizeView` / `CascadingAuthenticationState`** — wrap `Routes`/layout; show
-   login/logout in `NavMenu`; gate admin-only UI by role (`RavelinRoles` in Shared).
-6. **Wire `Routes.razor`** to `AuthorizeRouteView` so protected pages require auth.
-7. **Verify**: log in as admin (creds in §5) in the browser; confirm authed UI + a protected
-   call works; log in as the demo Viewer; confirm read-only. Then build/deploy (§4) and
-   re-verify on the live URL.
-
-**Definition of done:** browser login works end-to-end on the live app for both admin and
-demo users; unauthenticated users are redirected to login; role-gated UI behaves.
-
-After 4b: **Stage 5 (SLA engine + triage)** — compute breach states, time-to-remediation,
-and triage actions (false-positive / accepted-risk) on findings; expose via API; add unit
-tests for SLA math. See `PROJECT_VISION.md` §10.
+**NEXT — Stage 5 (SLA engine + triage):** compute breach states, time-to-remediation, and
+triage actions (false-positive / accepted-risk) on findings; expose via API; add unit tests
+for SLA math. See `PROJECT_VISION.md` §10. (Note: `SlaPolicy` is already seeded — 4 rows.)
 
 ---
 

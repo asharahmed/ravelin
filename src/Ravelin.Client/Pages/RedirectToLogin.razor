@@ -1,0 +1,13 @@
+@inject NavigationManager Nav
+
+@code {
+    // Sends an unauthenticated user to /login, preserving where they were headed.
+    protected override void OnInitialized()
+    {
+        var returnUrl = Nav.ToBaseRelativePath(Nav.Uri);
+        var query = string.IsNullOrEmpty(returnUrl)
+            ? string.Empty
+            : $"?returnUrl={Uri.EscapeDataString(returnUrl)}";
+        Nav.NavigateTo($"login{query}");
+    }
+}

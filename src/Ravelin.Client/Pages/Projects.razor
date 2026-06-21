@@ -1,0 +1,66 @@
+@page "/projects"
+@attribute [Authorize]
+@inject HttpClient Http
+
+<PageTitle>Projects — Ravelin</PageTitle>
+
+<h1>Projects</h1>
+
+<AuthorizeView Roles="@RavelinRoles.Admin">
+    <Authorized>
+        <p class="text-muted">
+            You're an <strong>Admin</strong> — project &amp; API-key management UI arrives in a later stage.
+        </p>
+    </Authorized>
+    <NotAuthorized>
+        <p class="text-muted">Read-only view.</p>
+    </NotAuthorized>
+</AuthorizeView>
+
+@if (projects is null && error is null)
+{
+    <p><em>Loading…</em></p>
+}
+else if (error is not null)
+{
+    <div class="alert alert-danger" role="alert">Could not load projects: @error</div>
+}
+else if (projects!.Count == 0)
+{
+    <p>No projects yet.</p>
+}
+else
+{
+    <table class="table w-auto">
+        <thead>
+            <tr><th>Key</th><th>Name</th><th class="text-end">Open findings</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var p in projects)
+            {
+                <tr>
+                    <td><code>@p.Key</code></td>
+                    <td>@p.Name</td>
+                    <td class="text-end">@p.OpenFindings</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private IReadOnlyList<ProjectDto>? projects;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            projects = await Http.GetFromJsonAsync<List<ProjectDto>>("api/projects");
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+    }
+}
