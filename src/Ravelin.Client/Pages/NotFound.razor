@@ -1,5 +1,43 @@
-﻿@page "/not-found"
+@page "/not-found"
+@page "/{*path:nonfile}"
 @layout MainLayout
 
-<h3>Not Found</h3>
-<p>Sorry, the content you are looking for does not exist.</p>
+<PageTitle>Not found — Ravelin</PageTitle>
+
+<div class="nf-wrap ledger-rise">
+    <div class="ledger-eyebrow">Error 404</div>
+    <div class="nf-code ledger-num">404</div>
+    <h1 class="ledger-display nf-title">Page not found.</h1>
+    <p class="nf-lead">
+        We couldn't find that page. It may have moved, or the link was wrong.
+    </p>
+    <div class="nf-actions">
+        <a class="seal-btn nf-btn" href="dashboard">Go to dashboard</a>
+        <a class="quiet-btn nf-btn" href="">Home</a>
+    </div>
+</div>
+
+@code {
+    // Captures the unmatched path from the catch-all route so the router can bind it.
+    [Parameter] public string? Path { get; set; }
+}
+
+<style>
+    .nf-wrap {
+        max-width: 48ch;
+        padding: clamp(2.5rem, 9vh, 6rem) 0;
+    }
+    .nf-code {
+        font-family: var(--font-display);
+        font-weight: 600;
+        font-size: clamp(4.5rem, 16vw, 9rem);
+        line-height: 0.9;
+        color: var(--line-strong);
+        margin: 0.4rem 0 0.2rem;
+        letter-spacing: -0.03em;
+    }
+    .nf-title { font-size: clamp(1.6rem, 4vw, 2.4rem); margin: 0 0 0.9rem; }
+    .nf-lead { color: var(--ink-soft); line-height: 1.6; margin: 0 0 1.8rem; }
+    .nf-actions { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+    .nf-btn { font-size: 0.95rem; padding: 0.65rem 1.4rem; }
+</style>

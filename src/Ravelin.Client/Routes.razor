@@ -10,15 +10,24 @@
                     else
                     {
                         <LayoutView Layout="typeof(Layout.MainLayout)">
-                            <div class="alert alert-warning m-4" role="alert">
-                                You don't have permission to view this page.
+                            <div class="access-notice ledger-rise" role="alert">
+                                <div class="ledger-eyebrow">Restricted</div>
+                                <h1 class="ledger-display access-title">Access restricted.</h1>
+                                <p class="access-lead">
+                                    Your role doesn't have access to this page. Ask an administrator
+                                    if you need it.
+                                </p>
+                                <a class="seal-btn access-btn" href="dashboard">Go to dashboard</a>
                             </div>
                         </LayoutView>
                     }
                 </NotAuthorized>
                 <Authorizing>
                     <LayoutView Layout="typeof(Layout.MainLayout)">
-                        <p class="m-4"><em>Authorizing…</em></p>
+                        <div class="access-authorizing" role="status">
+                            <span class="access-spinner" aria-hidden="true"></span>
+                            <span>Checking access…</span>
+                        </div>
                     </LayoutView>
                 </Authorizing>
             </AuthorizeRouteView>

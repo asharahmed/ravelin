@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Ravelin.Client.Auth;
+using Ravelin.Client.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
 // --- Auth state + token plumbing ---------------------------------------------
 builder.Services.AddAuthorizationCore();
+builder.Services.AddScoped<ToastService>();
 builder.Services.AddScoped<TokenStore>();
 builder.Services.AddScoped<JwtAuthenticationStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(

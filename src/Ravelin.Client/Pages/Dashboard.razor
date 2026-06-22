@@ -1,23 +1,37 @@
 @page "/dashboard"
 @attribute [Authorize]
 @inject HttpClient Http
+@inject IJSRuntime JS
+@inject ToastService Toasts
 
 <PageTitle>Posture — Ravelin</PageTitle>
 
 <header class="dash-head ledger-rise">
     <div>
-        <div class="ledger-eyebrow">Ravelin / Security posture</div>
-        <h1 class="ledger-display dash-title">The state of remediation</h1>
+        <div class="ledger-eyebrow">Overview</div>
+        <h1 class="ledger-display dash-title">Security posture</h1>
     </div>
     <div class="dash-asof">
-        <span class="ledger-eyebrow">As of</span>
+        <span class="ledger-eyebrow">Updated</span>
         <span class="ledger-num">@DateTime.Now.ToString("MMM d, yyyy")</span>
     </div>
 </header>
+<hr class="dash-rule ledger-rise" />
 
 @if (loading)
 {
-    <p class="dash-loading">Reading the ledger…</p>
+    <div class="dash-skeleton" aria-hidden="true">
+        <div class="ledger-panel sk-hero">
+            <span class="skeleton sk-line sk-sm"></span>
+            <span class="skeleton sk-line sk-xl"></span>
+            <span class="skeleton sk-bar"></span>
+        </div>
+        <div class="dash-grid">
+            <div class="ledger-panel sk-card"></div>
+            <div class="ledger-panel sk-card"></div>
+        </div>
+    </div>
+    <span class="sr-only" role="status">Loading dashboard…</span>
 }
 else if (error is not null)
 {
@@ -27,25 +41,25 @@ else if (data is null || data.ProjectCount == 0)
 {
     <div class="ledger-panel dash-empty ledger-rise">
         <h2 class="ledger-display">No projects yet</h2>
-        <p>Create a project and push a scan to <code>/api/ingest</code>, and your security posture will appear here — SLA compliance, breaches, and remediation trend.</p>
+        <p>Create a project and push a scan to <code>/api/ingest</code>. Your SLA compliance, breaches, and remediation trend will appear here.</p>
     </div>
 }
 else
 {
-    <section class="dash-hero ledger-rise" style="animation-delay:.05s">
-        <div class="ledger-panel hero-gauge">
-            <div class="ledger-eyebrow">Overall SLA compliance</div>
+    <section class="ledger-panel balance-sheet ledger-rise" style="animation-delay:.05s">
+        <div class="bs-balance">
+            <div class="led-label">Overall SLA compliance</div>
             <RadialGauge Percent="data.CompliancePercent" Label="within SLA" />
-            <p class="hero-gauge-note">
-                @data.OnTrack on track · @data.DueSoon due soon · @data.Breached breached
-            </p>
         </div>
-
-        <div class="hero-stats">
-            <div class="ledger-panel"><StatTile Label="Open findings" Value="data.TotalOpen" Caption="@($"across {data.ProjectCount} project{(data.ProjectCount == 1 ? "" : "s")}")" /></div>
-            <div class="ledger-panel"><StatTile Label="Breached" Value="data.Breached" AccentClass="accent-breached" Caption="past SLA deadline" /></div>
-            <div class="ledger-panel"><StatTile Label="Due soon" Value="data.DueSoon" AccentClass="accent-duesoon" Caption="within 7 days" /></div>
-            <div class="ledger-panel"><StatTile Label="On track" Value="data.OnTrack" AccentClass="accent-ontrack" Caption="comfortably in window" /></div>
+        <div class="bs-totals">
+            <div class="led-label">Totals</div>
+            <dl class="bs-list">
+                <div class="bs-line"><dt>Open findings</dt><dd class="ledger-num">@data.TotalOpen</dd></div>
+                <div class="bs-line bs-red"><dt>Breached</dt><dd class="ledger-num">@data.Breached</dd></div>
+                <div class="bs-line bs-amber"><dt>Due soon</dt><dd class="ledger-num">@data.DueSoon</dd></div>
+                <div class="bs-line"><dt>On track</dt><dd class="ledger-num">@data.OnTrack</dd></div>
+            </dl>
+            <div class="bs-foot">@data.TotalOpen open across @data.ProjectCount project@(data.ProjectCount == 1 ? "" : "s")</div>
         </div>
     </section>
 
@@ -96,7 +110,12 @@ else
     <section class="ledger-panel dash-projects ledger-rise" style="animation-delay:.25s">
         <div class="card-head">
             <h2 class="ledger-display card-title">By project</h2>
-            <span class="ledger-eyebrow">most at-risk first</span>
+            <button class="dash-export" @onclick="ExportReport" title="Download an audit-ready compliance report (CSV)">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                Compliance report
+            </button>
         </div>
         <hr class="ledger-rule" />
         <table class="proj-table">
@@ -111,9 +130,11 @@ else
             <tbody>
                 @foreach (var p in data.Projects)
                 {
-                    <tr @onclick="() => GoTo(p.Key)" class="proj-row">
+                    <tr @onclick="() => GoTo(p.Key)" @onkeydown="e => OnRowKey(e, p.Key)"
+                        class="proj-row" role="link" tabindex="0"
+                        aria-label="@($"Open {p.Name}: {p.Open} open, {p.CompliancePercent:F0}% within SLA")">
                         <td>
-                            <div class="proj-name">@p.Name</div>
+                            <div class="proj-name">@p.Name <span class="proj-go" aria-hidden="true">→</span></div>
                             <code class="proj-key">@p.Key</code>
                         </td>
                         <td class="num ledger-num">@p.Open</td>
@@ -169,7 +190,32 @@ else
 
     private void GoTo(string key) => Nav.NavigateTo($"projects/{key}");
 
+    private void OnRowKey(KeyboardEventArgs e, string key)
+    {
+        if (e.Key is "Enter" or " " or "Spacebar") GoTo(key);
+    }
+
     private static string ComplianceClass(double pct) => pct >= 90 ? "good" : pct >= 70 ? "warn" : "bad";
+
+    private async Task ExportReport()
+    {
+        if (data is null) return;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"# Ravelin compliance report");
+        sb.AppendLine($"# Generated,{DateTime.Now:yyyy-MM-dd HH:mm}");
+        sb.AppendLine($"# Overall SLA compliance,{data.CompliancePercent:F1}%");
+        sb.AppendLine($"# Open,{data.TotalOpen},Breached,{data.Breached},Due soon,{data.DueSoon},On track,{data.OnTrack}");
+        sb.AppendLine();
+        sb.AppendLine("Project,Key,Open,Breached,Compliance %");
+        foreach (var p in data.Projects)
+        {
+            sb.AppendLine(Ravelin.Shared.Csv.Row(p.Name, p.Key,
+                p.Open.ToString(), p.Breached.ToString(), p.CompliancePercent.ToString("F1")));
+        }
+        var name = $"ravelin-compliance-report-{DateTime.Now:yyyyMMdd}.csv";
+        await JS.InvokeVoidAsync("ravelinDownload", name, "text/csv", sb.ToString());
+        Toasts.Success($"Compliance report exported ({data.ProjectCount} project{(data.ProjectCount == 1 ? "" : "s")}).");
+    }
 
     [Inject] private NavigationManager Nav { get; set; } = default!;
 }

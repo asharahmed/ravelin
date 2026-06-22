@@ -65,10 +65,19 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// Apply role + seed-user setup at startup.
-await IdentitySeeder.SeedAsync(app.Services, app.Configuration);
-// Optional: seed realistic demo data for the public showcase (gated by Seed:DemoData).
-await DemoDataSeeder.SeedAsync(app.Services, app.Configuration);
+// Apply role + seed-user setup at startup. A transient DB outage here must not take the
+// whole app down — log and continue; seeding is idempotent and retried on next start.
+try
+{
+    await IdentitySeeder.SeedAsync(app.Services, app.Configuration);
+    // Optional: seed realistic demo data for the public showcase (gated by Seed:DemoData).
+    await DemoDataSeeder.SeedAsync(app.Services, app.Configuration);
+}
+catch (Exception ex)
+{
+    app.Services.GetRequiredService<ILogger<Program>>()
+        .LogError(ex, "Startup seeding failed; continuing without it.");
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -114,6 +123,14 @@ app.MapRavelinApi();
 
 app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()
-    .AddAdditionalAssemblies(typeof(Ravelin.Client._Imports).Assembly);
+    .AddAdditionalAssemblies(typeof(Ravelin.Client._Imports).Assembly)
+    // The Blazor pages render interactively in WASM (prerender:false) and authenticate
+    // entirely client-side (JWT in localStorage). Their `[Authorize]` attributes are
+    // enforced by the client router's AuthorizeRouteView. The SERVER must therefore serve
+    // the page shell anonymously — otherwise a hard-load / refresh of a protected route
+    // (e.g. /dashboard) is challenged by JwtBearer (the default scheme), which the server
+    // can't satisfy, yielding a 404. The real security boundary is the /api/* surface,
+    // which stays authenticated. See RavelinEndpoints for the authorized API.
+    .AllowAnonymous();
 
 app.Run();

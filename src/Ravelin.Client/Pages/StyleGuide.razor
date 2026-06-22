@@ -1,0 +1,201 @@
+@page "/styleguide"
+@layout MainLayout
+
+<PageTitle>Style guide — Ravelin</PageTitle>
+
+<header class="sg-head">
+    <div class="ledger-eyebrow">Reference</div>
+    <h1 class="ledger-display sg-title">Design system</h1>
+    <p class="sg-sub led-prose">Tokens, type, and components in every state — the single source of truth for the Ravelin UI. No green; red is reserved for breached/overdue, amber for aging, ink for everything settled.</p>
+</header>
+
+@* ── COLOUR ─────────────────────────────────────────────────────────────── *@
+<section class="sg-section">
+    <h2 class="ledger-display sg-h2">Colour</h2>
+    @foreach (var group in Palette)
+    {
+        <div class="sg-group-label led-label">@group.Name</div>
+        <div class="sg-swatches">
+            @foreach (var sw in group.Swatches)
+            {
+                <div class="sg-swatch">
+                    <span class="sg-chip-block" style="background:var(@sw.Var)"></span>
+                    <span class="sg-swatch-name">@sw.Name</span>
+                    <code class="sg-swatch-var">@sw.Var</code>
+                </div>
+            }
+        </div>
+    }
+</section>
+
+@* ── SPACE / RADIUS / MOTION ────────────────────────────────────────────── *@
+<section class="sg-section">
+    <h2 class="ledger-display sg-h2">Space, shape &amp; motion</h2>
+    <div class="sg-group-label led-label">Spacing scale · 4px base</div>
+    <div class="sg-spacing">
+        @foreach (var s in Spacing)
+        {
+            <div class="sg-space-row">
+                <code class="sg-space-var">@s.Var</code>
+                <span class="sg-space-bar" style="width:var(@s.Var)"></span>
+                <span class="sg-space-px">@s.Px</span>
+            </div>
+        }
+    </div>
+    <div class="sg-group-label led-label">Shape &amp; motion</div>
+    <div class="sg-row sg-wrap" style="gap:1.5rem">
+        <div class="sg-spec"><span class="sg-shape-demo"></span><span class="led-label">Radius 0 · squared</span></div>
+        <div class="sg-spec"><span class="led-label">Ease</span><code class="sg-mono-note">--ease · cubic-bezier(.22,1,.36,1)</code></div>
+        <div class="sg-spec"><span class="led-label">Durations</span><code class="sg-mono-note">--dur-fast .12s · --dur .2s · --dur-slow .5s</code></div>
+        <div class="sg-spec"><span class="led-label">Reduced motion</span><code class="sg-mono-note">all animation gated by prefers-reduced-motion</code></div>
+    </div>
+</section>
+
+@* ── TYPE ───────────────────────────────────────────────────────────────── *@
+<section class="sg-section">
+    <h2 class="ledger-display sg-h2">Typography</h2>
+    <div class="sg-type-row"><span class="led-label sg-type-tag">Display · Zilla Slab</span>
+        <div class="ledger-display" style="font-size:3rem">Security posture</div></div>
+    <div class="sg-type-row"><span class="led-label sg-type-tag">Title</span>
+        <div class="ledger-display" style="font-size:1.6rem">By severity</div></div>
+    <div class="sg-type-row"><span class="led-label sg-type-tag">Prose · Hanken Grotesk</span>
+        <p class="led-prose" style="margin:0;max-width:48ch">Each finding inherits a remediation deadline from its severity. Breaches surface the moment they happen.</p></div>
+    <div class="sg-type-row"><span class="led-label sg-type-tag">Label</span>
+        <div class="ledger-eyebrow">Overall SLA compliance</div></div>
+    <div class="sg-type-row"><span class="led-label sg-type-tag">Figure · Zilla Slab</span>
+        <div class="ledger-num" style="font-family:var(--font-display);font-size:2.6rem;font-weight:600">76.9%</div></div>
+    <div class="sg-type-row"><span class="led-label sg-type-tag">Code · Geist Mono</span>
+        <code style="font-family:var(--font-code);font-size:0.85rem">CVE-2024-29025 · io.netty:netty-codec-http 4.1.107.Final</code></div>
+</section>
+
+@* ── BUTTONS (all states) ───────────────────────────────────────────────── *@
+<section class="sg-section">
+    <h2 class="ledger-display sg-h2">Buttons</h2>
+    <div class="sg-note led-prose">Actions are ink-filled or hairline-ghost. Red is never a button — it would collide with the danger/breach semantic. Hover lifts brightness; focus shows the seal ring; disabled dims.</div>
+    <div class="sg-row">
+        <div class="sg-spec"><button class="seal-btn sg-btn">Primary</button><span class="led-label">default</span></div>
+        <div class="sg-spec"><button class="seal-btn sg-btn sg-force-hover">Primary</button><span class="led-label">hover</span></div>
+        <div class="sg-spec"><button class="seal-btn sg-btn sg-force-focus">Primary</button><span class="led-label">focus</span></div>
+        <div class="sg-spec"><button class="seal-btn sg-btn" disabled>Primary</button><span class="led-label">disabled</span></div>
+    </div>
+    <div class="sg-row">
+        <div class="sg-spec"><button class="quiet-btn sg-btn">Secondary</button><span class="led-label">default</span></div>
+        <div class="sg-spec"><button class="quiet-btn sg-btn sg-force-hover">Secondary</button><span class="led-label">hover</span></div>
+        <div class="sg-spec"><button class="quiet-btn sg-btn sg-force-focus">Secondary</button><span class="led-label">focus</span></div>
+        <div class="sg-spec"><button class="quiet-btn sg-btn" disabled>Secondary</button><span class="led-label">disabled</span></div>
+    </div>
+</section>
+
+@* ── STATUS TAGS (every variant) ────────────────────────────────────────── *@
+<section class="sg-section">
+    <h2 class="ledger-display sg-h2">Status tags</h2>
+    <div class="sg-group-label led-label">Severity</div>
+    <div class="sg-row sg-wrap">
+        <span class="chip sev-critical">Critical</span>
+        <span class="chip sev-high">High</span>
+        <span class="chip sev-medium">Medium</span>
+        <span class="chip sev-low">Low</span>
+        <span class="chip sev-unknown">Unknown</span>
+    </div>
+    <div class="sg-group-label led-label">SLA</div>
+    <div class="sg-row sg-wrap">
+        <span class="chip sla-ontrack">On track</span>
+        <span class="chip sla-duesoon">Due soon</span>
+        <span class="chip sla-breached">Breached</span>
+        <span class="chip sla-notapplicable">N/A</span>
+    </div>
+</section>
+
+@* ── FORM FIELDS (all states) ───────────────────────────────────────────── *@
+<section class="sg-section">
+    <h2 class="ledger-display sg-h2">Form fields</h2>
+    <div class="sg-row sg-wrap">
+        <label class="sg-field"><span class="led-label">Default</span><input class="sg-input" placeholder="Type here" /></label>
+        <label class="sg-field"><span class="led-label">Focus</span><input class="sg-input sg-force-focus" value="focused" /></label>
+        <label class="sg-field"><span class="led-label">Invalid</span><input class="sg-input invalid" value="bad value" /><span class="validation-message">This field is required.</span></label>
+        <label class="sg-field"><span class="led-label">Disabled</span><input class="sg-input" value="locked" disabled /></label>
+        <label class="sg-field"><span class="led-label">Select</span>
+            <select class="sg-input"><option>Resolved</option><option>False positive</option></select></label>
+    </div>
+</section>
+
+@* ── DATA DISPLAY ───────────────────────────────────────────────────────── *@
+<section class="sg-section">
+    <h2 class="ledger-display sg-h2">Data display</h2>
+    <div class="sg-cols">
+        <div class="ledger-panel sg-demo">
+            <div class="led-label">Compliance balance</div>
+            <RadialGauge Percent="76.9" Label="within SLA" />
+        </div>
+        <div class="ledger-panel sg-demo">
+            <div class="led-label">Dot leaders</div>
+            <div style="margin-top:0.6rem">
+                <BarMeter Label="Critical" Value="3" Max="5" ColorClass="sev-critical" />
+                <BarMeter Label="High" Value="4" Max="5" ColorClass="sev-high" />
+                <BarMeter Label="Medium" Value="5" Max="5" ColorClass="sev-medium" />
+            </div>
+        </div>
+        <div class="ledger-panel sg-demo">
+            <StatTile Label="Breached" Value="3" AccentClass="accent-breached" Caption="past SLA deadline" />
+        </div>
+    </div>
+    <div class="ledger-panel sg-demo" style="margin-top:1rem">
+        <div class="led-label">Trend chart · opened vs resolved</div>
+        <div style="margin-top:0.7rem"><TrendChart Points="SampleTrend" /></div>
+    </div>
+</section>
+
+@* ── FEEDBACK & LOADING STATES ──────────────────────────────────────────── *@
+<section class="sg-section">
+    <h2 class="ledger-display sg-h2">Feedback &amp; loading</h2>
+    <div class="sg-cols">
+        <div class="ledger-panel sg-demo">
+            <div class="led-label">Inline error</div>
+            <div class="sg-error"><span class="sg-error-dot"></span><span>Invalid email or password.</span></div>
+        </div>
+        <div class="ledger-panel sg-demo">
+            <div class="led-label">Spinner</div>
+            <div class="access-authorizing" style="padding:1rem 0"><span class="access-spinner"></span><span>Checking access…</span></div>
+        </div>
+        <div class="ledger-panel sg-demo">
+            <div class="led-label">Skeleton</div>
+            <div style="display:flex;flex-direction:column;gap:0.7rem;margin-top:0.6rem">
+                <span class="skeleton" style="height:0.8rem;width:50%"></span>
+                <span class="skeleton" style="height:2rem;width:70%"></span>
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    private record Sw(string Name, string Var);
+    private record Grp(string Name, Sw[] Swatches);
+
+    private static readonly List<TrendPointDto> SampleTrend = BuildTrend();
+    private static List<TrendPointDto> BuildTrend()
+    {
+        int[] opened = { 2, 4, 4, 1, 5, 7, 5, 8 };
+        int[] resolved = { 0, 2, 2, 1, 3, 3, 3, 7 };
+        var start = new DateTimeOffset(2026, 5, 3, 0, 0, 0, TimeSpan.Zero);
+        var list = new List<TrendPointDto>();
+        for (var i = 0; i < opened.Length; i++)
+            list.Add(new TrendPointDto { WeekStart = start.AddDays(i * 7), Opened = opened[i], Resolved = resolved[i] });
+        return list;
+    }
+
+    private record Sp(string Var, string Px);
+    private static readonly Sp[] Spacing =
+    [
+        new("--space-1", "4px"), new("--space-2", "8px"), new("--space-3", "12px"),
+        new("--space-4", "16px"), new("--space-5", "24px"), new("--space-6", "40px"),
+        new("--space-7", "64px"),
+    ];
+
+    private static readonly Grp[] Palette =
+    [
+        new("Surfaces", [ new("Paper","--paper"), new("Surface","--surface"), new("Sheet","--surface-raised"), new("Margin","--margin") ]),
+        new("Ink", [ new("Ink","--ink"), new("Ink soft","--ink-soft"), new("Ink faint","--ink-faint"), new("Line","--line"), new("Line strong","--line-strong") ]),
+        new("Accent & status", [ new("Brand (seal)","--brand"), new("Red (breach)","--red"), new("Amber (aging)","--amber") ]),
+        new("Severity", [ new("Critical","--sev-critical"), new("High","--sev-high"), new("Medium","--sev-medium"), new("Low","--sev-low"), new("Unknown","--sev-unknown") ]),
+    ];
+}

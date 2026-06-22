@@ -2,10 +2,12 @@
 @attribute [Authorize]
 @inject HttpClient Http
 @inject NavigationManager Nav
+@inject ToastService Toasts
+@inject IJSRuntime JS
 
 <PageTitle>@(project?.Name ?? Key) — Ravelin</PageTitle>
 
-<a class="back-link" href="dashboard">← Posture</a>
+<a class="back-link" href="dashboard"><span class="back-arrow" aria-hidden="true">←</span> Posture</a>
 
 <header class="pd-head ledger-rise">
     <div>
@@ -23,7 +25,24 @@
 
 @if (loading)
 {
-    <p class="pd-loading">Loading findings…</p>
+    <div class="pd-skeleton" aria-hidden="true">
+        <div class="pd-stats">
+            @for (var i = 0; i < 4; i++)
+            {
+                <div class="ledger-panel sk-stat">
+                    <span class="skeleton sk-line sk-sm"></span>
+                    <span class="skeleton sk-line sk-xl"></span>
+                </div>
+            }
+        </div>
+        <div class="ledger-panel sk-table">
+            @for (var i = 0; i < 5; i++)
+            {
+                <span class="skeleton sk-row"></span>
+            }
+        </div>
+    </div>
+    <span class="pd-sr" role="status">Loading findings…</span>
 }
 else if (error is not null)
 {
@@ -31,11 +50,11 @@ else if (error is not null)
 }
 else
 {
-    <section class="pd-stats ledger-rise" style="animation-delay:.05s">
-        <div class="ledger-panel"><StatTile Label="Open" Value="summary!.Value.open" /></div>
-        <div class="ledger-panel"><StatTile Label="Breached" Value="summary.Value.breached" AccentClass="accent-breached" /></div>
-        <div class="ledger-panel"><StatTile Label="Due soon" Value="summary.Value.dueSoon" AccentClass="accent-duesoon" /></div>
-        <div class="ledger-panel"><StatTile Label="Resolved" Value="summary.Value.resolved" AccentClass="accent-ontrack" /></div>
+    <section class="ledger-panel pd-stats ledger-rise" style="animation-delay:.05s">
+        <StatTile Label="Open" Value="summary!.Value.open" />
+        <StatTile Label="Breached" Value="summary.Value.breached" AccentClass="accent-breached" />
+        <StatTile Label="Due soon" Value="summary.Value.dueSoon" AccentClass="accent-duesoon" />
+        <StatTile Label="Resolved" Value="summary.Value.resolved" AccentClass="accent-ontrack" />
     </section>
 
     <section class="ledger-panel pd-findings ledger-rise" style="animation-delay:.1s">
@@ -44,26 +63,68 @@ else
             <div class="pd-filter">
                 @foreach (var f in filters)
                 {
-                    <button class="pd-chip @(activeFilter == f ? "is-active" : "")" @onclick="() => activeFilter = f">@f</button>
+                    <button class="pd-chip @(activeFilter == f ? "is-active" : "")" @onclick="() => activeFilter = f">
+                        @f<span class="pd-chip-count">@Count(f)</span>
+                    </button>
                 }
             </div>
+        </div>
+
+        <div class="pd-toolbar">
+            <div class="pd-search">
+                <svg class="pd-search-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" stroke-linecap="round" />
+                </svg>
+                <input class="pd-search-input" type="search" placeholder="Search findings, CVE, package…"
+                       @bind="searchText" @bind:event="oninput" aria-label="Search findings" />
+                @if (!string.IsNullOrEmpty(searchText))
+                {
+                    <button class="pd-search-clear" @onclick="@(() => searchText = "")" aria-label="Clear search">&times;</button>
+                }
+            </div>
+            <button class="pd-export" @onclick="ExportCsv" disabled="@(!Visible.Any())" title="Download the current view as CSV">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                Export CSV
+            </button>
         </div>
         <hr class="ledger-rule" />
 
         @if (!Visible.Any())
         {
-            <p class="pd-empty">No @(activeFilter == "All" ? "" : activeFilter.ToLower() + " ")findings.</p>
+            <div class="pd-empty ledger-rise">
+                <span class="pd-empty-mark" aria-hidden="true"></span>
+                <p class="pd-empty-text">
+                    @if (!string.IsNullOrWhiteSpace(searchText))
+                    {
+                        <span>No findings match “@searchText”.</span>
+                    }
+                    else if (activeFilter == "Breached")
+                    {
+                        <span>Nothing breached. Every open finding is still within its SLA window.</span>
+                    }
+                    else if (activeFilter == "Open")
+                    {
+                        <span>No open findings. This project is clear.</span>
+                    }
+                    else
+                    {
+                        <span>No @(activeFilter == "All" ? "" : activeFilter.ToLowerInvariant() + " ")findings to show.</span>
+                    }
+                </p>
+            </div>
         }
         else
         {
             <table class="find-table">
                 <thead>
                     <tr>
-                        <th>Severity</th>
+                        <th><button class="find-sort @SortCls("Severity")" @onclick="@(() => SortBy("Severity"))">Severity @SortArrow("Severity")</button></th>
                         <th>Vulnerability</th>
-                        <th>Package</th>
-                        <th>Status</th>
-                        <th>SLA</th>
+                        <th><button class="find-sort @SortCls("Package")" @onclick="@(() => SortBy("Package"))">Package @SortArrow("Package")</button></th>
+                        <th><button class="find-sort @SortCls("Status")" @onclick="@(() => SortBy("Status"))">Status @SortArrow("Status")</button></th>
+                        <th><button class="find-sort @SortCls("SLA")" @onclick="@(() => SortBy("SLA"))">SLA @SortArrow("SLA")</button></th>
                         <AuthorizeView Roles="@TriageRoles" Context="auth"><Authorized><th></th></Authorized></AuthorizeView>
                     </tr>
                 </thead>
@@ -137,6 +198,9 @@ else
     private bool loading = true;
     private string? error;
     private string activeFilter = "Open";
+    private string searchText = "";
+    private string sortColumn = "Severity";
+    private bool sortAsc = false;
 
     private Guid? editingId;
     private string triageStatus = "Resolved";
@@ -181,7 +245,7 @@ else
         summary = (open, breached, dueSoon, resolved, compliance);
     }
 
-    private IEnumerable<FindingDto> Visible => activeFilter switch
+    private IEnumerable<FindingDto> Filtered(string filter) => filter switch
     {
         "Open" => findings.Where(f => f.Status == "Open"),
         "Breached" => findings.Where(f => f.SlaState == "Breached"),
@@ -189,6 +253,65 @@ else
         "Suppressed" => findings.Where(f => f.Status is "FalsePositive" or "AcceptedRisk"),
         _ => findings,
     };
+
+    private IEnumerable<FindingDto> Visible => Sort(Search(Filtered(activeFilter)));
+
+    private int Count(string filter) => Filtered(filter).Count();
+
+    private IEnumerable<FindingDto> Search(IEnumerable<FindingDto> q)
+    {
+        if (string.IsNullOrWhiteSpace(searchText)) return q;
+        var s = searchText.Trim();
+        return q.Where(f =>
+            Has(f.Title, s) || Has(f.VulnerabilityId, s) ||
+            Has(f.PackageName, s) || Has(f.PackageVersion, s) || Has(f.Severity, s));
+    }
+
+    private static bool Has(string? v, string s) =>
+        v is not null && v.Contains(s, StringComparison.OrdinalIgnoreCase);
+
+    private static int SevRank(string s) => s switch
+    {
+        "Critical" => 4, "High" => 3, "Medium" => 2, "Low" => 1, _ => 0,
+    };
+
+    private IEnumerable<FindingDto> Sort(IEnumerable<FindingDto> q)
+    {
+        Func<FindingDto, IComparable> key = sortColumn switch
+        {
+            "Package" => f => f.PackageName ?? "",
+            "Status" => f => f.Status ?? "",
+            "SLA" => f => f.DaysToSla ?? int.MaxValue,
+            _ => f => SevRank(f.Severity),
+        };
+        return sortAsc ? q.OrderBy(key) : q.OrderByDescending(key);
+    }
+
+    private void SortBy(string col)
+    {
+        if (sortColumn == col) { sortAsc = !sortAsc; }
+        else { sortColumn = col; sortAsc = col is "Package" or "Status"; }
+    }
+
+    private string SortCls(string col) => sortColumn == col ? "is-sorted" : "";
+    private string SortArrow(string col) => sortColumn != col ? "" : sortAsc ? "↑" : "↓";
+
+    private async Task ExportCsv()
+    {
+        var rows = Visible.ToList();
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Severity,Vulnerability,Title,Package,Version,Status,SLA State,Days To SLA");
+        foreach (var f in rows)
+        {
+            sb.AppendLine(Ravelin.Shared.Csv.Row(
+                f.Severity, f.VulnerabilityId, f.Title,
+                f.PackageName, f.PackageVersion, Humanize(f.Status),
+                f.SlaState, f.DaysToSla?.ToString()));
+        }
+        var name = $"ravelin-{Key}-findings-{DateTime.Now:yyyyMMdd}.csv";
+        await JS.InvokeVoidAsync("ravelinDownload", name, "text/csv", sb.ToString());
+        Toasts.Success($"Exported {rows.Count} finding{(rows.Count == 1 ? "" : "s")} to CSV.");
+    }
 
     private void OpenTriage(FindingDto f)
     {
@@ -223,6 +346,7 @@ else
                 return;
             }
             editingId = null;
+            Toasts.Success($"“{Truncate(f.Title, 40)}” marked {Humanize(triageStatus).ToLowerInvariant()}.");
             await Load();
         }
         catch (Exception ex)
@@ -236,6 +360,9 @@ else
     }
 
     private static string SevClass(string sev) => "sev-" + sev.ToLowerInvariant();
+
+    private static string Truncate(string s, int max) =>
+        string.IsNullOrEmpty(s) || s.Length <= max ? s : s[..(max - 1)].TrimEnd() + "…";
 
     private static string Humanize(string status) => status switch
     {
