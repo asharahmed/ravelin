@@ -169,7 +169,11 @@ the vision doc wins. Keep both updated as decisions are made.
   carry SLA state, triage works, RBAC (viewer 403 on triage+PUT, note-required 400). Demo
   data restored after test.
 
-## Stage 6 — DONE (dashboards, "Compliance Ledger" UI); deploy pending
+## Stage 6 — DONE (dashboards, "Compliance Ledger" UI); LIVE (image 0.6.0, revision 0000020)
+- **Demo data:** `DemoDataSeeder` (gated `Seed:DemoData=true`, idempotent by project key)
+  seeds 4 back-dated demo projects → live posture ~76.9% compliance, 3 breached, 3 due-soon,
+  populated 8-week trend, triaged examples. Terraform sets `Seed__DemoData=true`. Existing
+  `demo-app`/`web-frontend` untouched.
 - **Aesthetic:** "Compliance Ledger" — editorial, light-first, semantic severity colour,
   Fraunces (display) + Archivo (body), OKLCH palette, dark-mode aware. Zero chart-lib deps
   (the SCA story stays clean). Tokens in `src/Ravelin/wwwroot/ledger.css` (linked in
