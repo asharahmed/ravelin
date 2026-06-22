@@ -21,6 +21,9 @@ genuinely welcome and will be credited if you'd like.
 ## Hardening already in place
 
 - RBAC enforced per endpoint, deny-by-default; API keys stored hashed (SHA-256).
+- Application secrets (database connection, JWT signing key, seeded passwords) live in
+  Azure Key Vault and are read at runtime via a managed identity — not embedded in the
+  app definition or Terraform state.
 - Per-IP rate limiting on auth and ingestion; account lockout after repeated failed logins.
 - A Content-Security-Policy plus `X-Content-Type-Options`, `X-Frame-Options`,
   `Referrer-Policy`, and `Permissions-Policy` on every response.
