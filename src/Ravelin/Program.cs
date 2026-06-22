@@ -69,7 +69,9 @@ builder.Services.AddIdentityCore<IdentityUser>(options =>
         options.Lockout.AllowedForNewUsers = true;
     })
     .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<RavelinDbContext>();
+    .AddEntityFrameworkStores<RavelinDbContext>()
+    // Token providers back password-reset tokens (admin-initiated reset; no email).
+    .AddDefaultTokenProviders();
 
 // --- AuthN: JWT for humans (default), API keys for pipeline ingestion ----------
 var jwtSection = builder.Configuration.GetSection(JwtOptions.SectionName);

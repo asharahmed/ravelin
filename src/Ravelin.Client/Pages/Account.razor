@@ -1,0 +1,111 @@
+@page "/account"
+@attribute [Authorize]
+@using System.ComponentModel.DataAnnotations
+@inject HttpClient Http
+@inject ToastService Toasts
+
+<PageTitle>Account — Ravelin</PageTitle>
+
+<header class="dash-head ledger-rise">
+    <div>
+        <div class="ledger-eyebrow">Account</div>
+        <h1 class="ledger-display dash-title">Your account</h1>
+    </div>
+</header>
+<hr class="dash-rule ledger-rise" />
+
+<div class="acct-grid">
+    <section class="ledger-panel acct-card reveal">
+        <div class="card-head"><h2 class="ledger-display card-title">Profile</h2></div>
+        <hr class="ledger-rule" />
+        @if (account is null)
+        {
+            <span class="skeleton" style="display:block;height:1.2rem;width:60%;margin:.5rem 0"></span>
+        }
+        else
+        {
+            <dl class="acct-meta">
+                <div><dt class="ledger-eyebrow">Email</dt><dd class="ledger-num">@account.Email</dd></div>
+                <div><dt class="ledger-eyebrow">Role</dt><dd>@(account.Roles.Count == 0 ? "—" : string.Join(", ", account.Roles))</dd></div>
+            </dl>
+        }
+    </section>
+
+    <section class="ledger-panel acct-card reveal">
+        <div class="card-head"><h2 class="ledger-display card-title">Change password</h2></div>
+        <hr class="ledger-rule" />
+        <EditForm Model="model" OnValidSubmit="SubmitAsync">
+            <DataAnnotationsValidator />
+
+            @if (error is not null)
+            {
+                <div class="s-error" role="alert">@error</div>
+            }
+
+            <div class="acct-field">
+                <label class="form-label" for="cur">Current password</label>
+                <InputText id="cur" type="password" class="form-control" @bind-Value="model.Current"
+                           autocomplete="current-password" />
+                <ValidationMessage For="() => model.Current" />
+            </div>
+
+            <div class="acct-field">
+                <label class="form-label" for="newpw">New password</label>
+                <InputText id="newpw" type="password" class="form-control" @bind-Value="model.New"
+                           autocomplete="new-password" />
+                <ValidationMessage For="() => model.New" />
+                <p class="acct-hint">At least 12 characters, with upper- and lower-case, a digit, and a symbol.</p>
+            </div>
+
+            <button class="seal-btn" type="submit" disabled="@busy">
+                @(busy ? "Saving…" : "Change password")
+            </button>
+        </EditForm>
+    </section>
+</div>
+
+@code {
+    private AccountDto? account;
+    private readonly Model model = new();
+    private string? error;
+    private bool busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { account = await Http.GetFromJsonAsync<AccountDto>("api/account"); }
+        catch { /* leave null → skeleton */ }
+    }
+
+    private async Task SubmitAsync()
+    {
+        busy = true;
+        error = null;
+        try
+        {
+            var resp = await Http.PostAsJsonAsync("api/account/change-password",
+                new ChangePasswordRequest { CurrentPassword = model.Current, NewPassword = model.New });
+            if (resp.IsSuccessStatusCode)
+            {
+                model.Current = "";
+                model.New = "";
+                Toasts.Success("Password changed.");
+            }
+            else
+            {
+                error = await ApiErrors.ReadMessageAsync(resp, "Could not change the password.");
+            }
+        }
+        catch (Exception ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+
+    private sealed class Model
+    {
+        [Required(ErrorMessage = "Enter your current password.")]
+        public string Current { get; set; } = "";
+
+        [Required(ErrorMessage = "Enter a new password.")]
+        [MinLength(12, ErrorMessage = "At least 12 characters.")]
+        public string New { get; set; } = "";
+    }
+}

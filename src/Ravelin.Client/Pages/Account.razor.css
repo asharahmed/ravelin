@@ -1,0 +1,25 @@
+.acct-grid {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: 1fr;
+    max-width: 640px;
+}
+
+.acct-card { padding: 1.4rem 1.5rem; }
+
+.acct-meta { display: grid; gap: 1rem; margin: 0.5rem 0 0; }
+.acct-meta dt { margin-bottom: 0.15rem; }
+.acct-meta dd { margin: 0; font-size: 1.05rem; }
+
+.acct-field { margin: 0 0 1.1rem; }
+.acct-field .form-label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-bottom: 0.35rem;
+    color: var(--ink-soft);
+}
+
+.acct-hint { font-size: 0.8rem; color: var(--ink-faint); margin: 0.4rem 0 0; }
+
+.acct-card .seal-btn { margin-top: 0.3rem; }

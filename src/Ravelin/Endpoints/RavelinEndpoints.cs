@@ -21,6 +21,7 @@ public static class RavelinEndpoints
     public static void MapRavelinApi(this WebApplication app)
     {
         MapAuth(app);
+        MapAccount(app);
         MapIngestion(app);
         MapAdmin(app);
         MapReads(app);
@@ -405,6 +406,76 @@ public static class RavelinEndpoints
                 .ToListAsync();
             return Results.Ok(events);
         });
+
+        // Admin-initiated password reset (no email): set a strong temporary password and return
+        // it once for out-of-band handoff. The user signs in with it and changes it on /account.
+        admin.MapPost("/users/{id}/reset-password", async (
+            string id, UserManager<IdentityUser> users, AuditService audit, ClaimsPrincipal actor) =>
+        {
+            var user = await users.FindByIdAsync(id);
+            if (user is null)
+            {
+                return Results.NotFound("User not found.");
+            }
+
+            var temp = GenerateTempPassword();
+            var token = await users.GeneratePasswordResetTokenAsync(user);
+            var result = await users.ResetPasswordAsync(user, token, temp);
+            if (!result.Succeeded)
+            {
+                return Results.Problem(
+                    detail: string.Join(" ", result.Errors.Select(e => e.Description)),
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            await audit.RecordAsync(ActorOf(actor), "user.password.reset", user.Email);
+            return Results.Ok(new AdminResetPasswordResponse
+            {
+                Email = user.Email ?? "",
+                TemporaryPassword = temp,
+            });
+        });
+    }
+
+    // --- Account (the signed-in user's own profile + password) --------------------------
+    private static void MapAccount(WebApplication app)
+    {
+        app.MapGet("/api/account", (ClaimsPrincipal user) => Results.Ok(new AccountDto
+        {
+            Email = ActorOf(user),
+            Roles = user.FindAll("role").Select(c => c.Value).ToList(),
+        }))
+        .RequireAuthorization();
+
+        app.MapPost("/api/account/change-password", async (
+            ChangePasswordRequest req, UserManager<IdentityUser> users, AuditService audit, ClaimsPrincipal actor) =>
+        {
+            if (string.IsNullOrWhiteSpace(req.CurrentPassword) || string.IsNullOrWhiteSpace(req.NewPassword))
+            {
+                return Results.Problem(detail: "Current and new password are required.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            var user = await users.FindByEmailAsync(ActorOf(actor));
+            if (user is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await users.ChangePasswordAsync(user, req.CurrentPassword, req.NewPassword);
+            if (!result.Succeeded)
+            {
+                return Results.Problem(
+                    detail: string.Join(" ", result.Errors.Select(e => e.Description)),
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            await audit.RecordAsync(ActorOf(actor), "account.password");
+            return Results.NoContent();
+        })
+        .RequireAuthorization()
+        .RequireRateLimiting("auth")
+        .DisableAntiforgery();
     }
 
     // --- Reads (any authenticated user: Viewer / Analyst / Admin) -----------------------
@@ -727,6 +798,28 @@ public static class RavelinEndpoints
     /// <summary>The acting user's email for audit records (NameClaimType is "email").</summary>
     private static string ActorOf(ClaimsPrincipal user) =>
         user.Identity?.Name ?? user.FindFirstValue("email") ?? "unknown";
+
+    /// <summary>A cryptographically-random 16-char password that satisfies the Identity policy
+    /// (upper/lower/digit/symbol, ≥12). Used for admin-initiated resets (no email).</summary>
+    private static string GenerateTempPassword()
+    {
+        const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        const string lower = "abcdefghijkmnpqrstuvwxyz";
+        const string digit = "23456789";
+        const string symbol = "!#%-_=+";
+        var all = upper + lower + digit + symbol;
+        static char Pick(string set) => set[System.Security.Cryptography.RandomNumberGenerator.GetInt32(set.Length)];
+
+        var chars = new List<char> { Pick(upper), Pick(lower), Pick(digit), Pick(symbol) };
+        while (chars.Count < 16) chars.Add(Pick(all));
+        // Fisher–Yates shuffle so the guaranteed-class characters aren't always first.
+        for (var i = chars.Count - 1; i > 0; i--)
+        {
+            var j = System.Security.Cryptography.RandomNumberGenerator.GetInt32(i + 1);
+            (chars[i], chars[j]) = (chars[j], chars[i]);
+        }
+        return new string([.. chars]);
+    }
 
     private static ProjectDto ToDto(Project p, int openFindings) => new()
     {

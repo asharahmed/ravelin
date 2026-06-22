@@ -3,6 +3,7 @@
 @inject HttpClient Http
 @inject ToastService Toast
 @inject AuthenticationStateProvider AuthState
+@inject IJSRuntime JS
 
 <PageTitle>Team — Ravelin</PageTitle>
 
@@ -21,7 +22,7 @@
     {
         <div class="s-card">
             <table class="s-table">
-                <thead><tr><th>User</th><th style="width:11rem">Role</th></tr></thead>
+                <thead><tr><th>User</th><th style="width:11rem">Role</th><th style="width:10rem">Password</th></tr></thead>
                 <tbody>
                     @foreach (var u in users)
                     {
@@ -38,11 +39,29 @@
                                     }
                                 </select>
                             </td>
+                            <td>
+                                <button class="s-btn s-btn--sm" @onclick="() => ResetAsync(u)" disabled="@(resetBusyId == u.Id)">
+                                    @(resetBusyId == u.Id ? "Resetting…" : "Reset")
+                                </button>
+                            </td>
                         </tr>
                     }
                 </tbody>
             </table>
         </div>
+
+        @if (resetResult is not null)
+        {
+            <div class="s-reveal" style="margin-top:0.8rem">
+                <div class="s-reveal-label">Temporary password for @resetResult.Email — copy it now, it won't be shown again</div>
+                <div class="s-reveal-key">
+                    <code>@resetResult.TemporaryPassword</code>
+                    <button class="s-btn s-btn--sm" @onclick="CopyTempAsync">@copyLabel</button>
+                </div>
+                <p class="s-reveal-note">Hand it to the user out-of-band. They sign in with it and change it on their Account page.</p>
+            </div>
+        }
+
         <p class="s-card-meta" style="margin-top:0.6rem">
             Admin — manage projects, keys, SLA policy, and team. Analyst — triage findings. Viewer — read-only.
         </p>
@@ -57,6 +76,9 @@
     private string? loadError;
     private string? me;
     private string? busyId;
+    private string? resetBusyId;
+    private AdminResetPasswordResponse? resetResult;
+    private string copyLabel = "Copy";
 
     protected override async Task OnInitializedAsync()
     {
@@ -94,5 +116,32 @@
         }
         catch (Exception ex) { Toast.Error(ex.Message); await LoadAsync(); }
         finally { busyId = null; }
+    }
+
+    private async Task ResetAsync(UserDto user)
+    {
+        resetBusyId = user.Id; resetResult = null; copyLabel = "Copy";
+        try
+        {
+            var resp = await Http.PostAsync($"api/admin/users/{user.Id}/reset-password", null);
+            if (resp.IsSuccessStatusCode)
+            {
+                resetResult = await resp.Content.ReadFromJsonAsync<AdminResetPasswordResponse>();
+                Toast.Success($"Temporary password generated for {user.Email}.");
+            }
+            else
+            {
+                Toast.Error(await ApiErrors.ReadMessageAsync(resp, $"Could not reset the password ({(int)resp.StatusCode})."));
+            }
+        }
+        catch (Exception ex) { Toast.Error(ex.Message); }
+        finally { resetBusyId = null; }
+    }
+
+    private async Task CopyTempAsync()
+    {
+        if (resetResult is null) return;
+        await JS.InvokeVoidAsync("ravelinCopy", resetResult.TemporaryPassword);
+        copyLabel = "Copied";
     }
 }
