@@ -14,7 +14,6 @@
     padding: 0.4rem 0;
     animation: marq-scroll 38s linear infinite;
 }
-.marq:hover .marq-track { animation-play-state: paused; }
 
 @keyframes marq-scroll {
     from { transform: translateX(0); }
