@@ -220,6 +220,28 @@ app.MapGet("/.well-known/security.txt", () => Results.Text(
 // user). See Endpoints/RavelinEndpoints.cs.
 app.MapRavelinApi();
 
+// Internal: trigger an SLA re-evaluation. Gated by a shared secret header (NOT a JWT) so a
+// scheduled Container Apps cron Job (alerts-job.tf) can fire it hourly while the app stays
+// scale-to-zero. Returns 404 (disabled) when no token is configured.
+app.MapPost("/api/internal/reevaluate", async (
+    HttpContext http, IConfiguration config, Ravelin.Infrastructure.Services.SlaReEvaluator reEvaluator) =>
+{
+    var expected = config["Reeval:Token"];
+    if (string.IsNullOrEmpty(expected)) return Results.NotFound();
+
+    var provided = http.Request.Headers["X-Reeval-Token"].ToString();
+    var ok = provided.Length > 0 && System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+        System.Text.Encoding.UTF8.GetBytes(provided), System.Text.Encoding.UTF8.GetBytes(expected));
+    if (!ok) return Results.Unauthorized();
+
+    var r = await reEvaluator.ReEvaluateAsync();
+    return Results.Ok(new Ravelin.Shared.Contracts.ReEvaluateSummaryDto
+    {
+        Scanned = r.Scanned, NewBreached = r.NewBreached, NewDueSoon = r.NewDueSoon, Notified = r.Notified,
+    });
+})
+.DisableAntiforgery();
+
 // Unmapped /api/* paths return a real 404 (JSON problem), not the Blazor SPA shell, so API
 // consumers hitting a wrong route get a proper status instead of HTML.
 app.Map("/api/{**rest}", () => Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Not Found"));

@@ -130,6 +130,12 @@ resource "azurerm_container_app" "main" {
     identity            = azurerm_user_assigned_identity.app.id
   }
 
+  # Shared secret the scheduled re-evaluation cron Job presents to /api/internal/reevaluate.
+  secret {
+    name  = "reeval-token"
+    value = random_password.reeval.result
+  }
+
   ingress {
     external_enabled = true
     target_port      = var.target_port
@@ -189,6 +195,11 @@ resource "azurerm_container_app" "main" {
       env {
         name  = "Seed__DemoData"
         value = "true"
+      }
+
+      env {
+        name        = "Reeval__Token"
+        secret_name = "reeval-token"
       }
 
       liveness_probe {

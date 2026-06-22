@@ -46,7 +46,7 @@ variable "target_port" {
 }
 
 variable "min_replicas" {
-  description = "Minimum replicas. 0 enables scale-to-zero (cost saving; cold start on first request)."
+  description = "Minimum replicas. 0 enables scale-to-zero (cost saving; cold start on first request). Scheduled SLA alerting is driven by a separate Container Apps cron Job (alerts-job.tf), so the app can stay at 0."
   type        = number
   default     = 0
 }
