@@ -10,9 +10,9 @@ Tokens: `src/Ravelin/wwwroot/ledger.css`. Component layout: scoped `*.razor.css`
 
 ## Typography
 
-A slab-serif-led system — deliberately none of the AI-typography defaults: not the editorial
-serif-headline-+-sans pairing (Caslon/Fraunces/Newsreader), not the trendy designer grotesque
-crop (Bricolage/Space Grotesk/Geist), and not a typewriter gimmick. A slab serif reads as an
+A slab-serif-led system, chosen to avoid the obvious defaults — not the editorial
+serif-headline-plus-sans pairing (Caslon/Fraunces/Newsreader), not the designer grotesque
+(Bricolage/Space Grotesk/Geist), and not a typewriter gimmick. A slab serif reads like an
 *engineering / technical-compliance document*, which is exactly the product's job.
 
 | Role | Typeface | Why |
@@ -94,7 +94,7 @@ auth) — the single source of truth, rendered from the real tokens and componen
 
 - **Tokens**: every colour swatch with its CSS variable (surfaces, ink tiers, accent/status,
   severity scale).
-- **Type**: the full scale — Bricolage display/title, Hanken prose/label, Bricolage figures,
+- **Type**: the full scale — Zilla Slab display/title/figures, Hanken Grotesk prose/label,
   Geist Mono code.
 - **Components in every state**: buttons (default / hover / focus / disabled), status tags
   (all severity + SLA variants), form fields (default / focus / invalid / disabled / select),

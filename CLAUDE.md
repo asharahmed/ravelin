@@ -260,4 +260,4 @@ Vision + all 6 technical decisions agreed. Build plan defined.
       has no granted Microsoft-hosted parallelism, and **public projects are blocked by the
       Birmingham tenant policy** (so going public is not a fix). Resolution: request the free
       grant (`https://aka.ms/azpipelines-parallelism-request`, ~2-3 business days); deploy via
-      the manual Docker-less path meanwhile. See `next_steps.md` §6.1.
+      the manual Docker-less path (`scripts/deploy.sh`) meanwhile.

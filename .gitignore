@@ -500,3 +500,6 @@ backend.hcl
 # Terraform plan output
 tfplan
 *.tfplan
+
+# Internal session handoff — not for the public repo
+next_steps.md

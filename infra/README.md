@@ -1,20 +1,21 @@
-# Infrastructure (Stage 1)
+# Infrastructure
 
-Terraform that provisions Ravelin's Azure resources, and the remote-state bootstrap.
+Terraform that provisions Ravelin's Azure resources, plus the remote-state bootstrap.
 
 ## What gets created (`infra/terraform`)
 - Resource group
-- Log Analytics workspace (Container Apps logs/metrics)
-- Azure Container Registry (Basic, **admin disabled** — pulls use managed identity)
-- User-assigned managed identity + **AcrPull** role assignment (credential-less image pull)
-- Container Apps environment
-- Container App (external HTTPS ingress on `8080`, `/health` probes, **scale-to-zero**)
+- Log Analytics workspace (Container Apps logs and metrics)
+- Azure Container Registry (Basic, admin disabled — pulls use managed identity)
+- User-assigned managed identity + AcrPull role assignment (credential-less image pull)
+- Container Apps environment and a Container App (external HTTPS ingress on `8080`,
+  `/health` probes, scale-to-zero)
+- Azure SQL Database (serverless `GP_S_Gen5_1`, auto-pause after 60 min idle) and its server
+- A separate CI/CD managed identity (AcrPush + Contributor) for the pipeline, kept distinct
+  from the app's pull-only runtime identity
 
-> Azure SQL is intentionally **not** here yet — it arrives in Stage 2 with the data model.
-
-The Container App is created with a public placeholder image; the CI/CD pipeline (Stage 1b)
-pushes the real image to ACR and updates the running revision. Terraform ignores image
-changes thereafter (`lifecycle.ignore_changes`).
+The Container App is created with a placeholder image; the CI/CD pipeline pushes the real
+image to ACR and updates the running revision, so Terraform ignores image changes thereafter
+(`lifecycle.ignore_changes`).
 
 ## One-time setup
 ```bash

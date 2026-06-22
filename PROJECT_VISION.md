@@ -3,37 +3,20 @@
 **Ravelin** — a vulnerability SLA & compliance tracker. *Tagline: "Hold the line on security debt."*
 (A *ravelin* is a triangular defensive outwork in front of a fortress wall — an outer layer of defense.)
 
-> **Naming note:** "Ravelin" is also an existing UK fraud-detection company. Fine for a
-> portfolio piece; if you ever want a unique repo/domain, consider a qualifier like
-> `ravelin-sec` or `ravelin-appsec`. Folder/repo: `ravelin`. To revisit later.
-
-> **Status:** Vision + all 6 decisions agreed; build plan set. **Stage 0 code complete &
-> verified natively** (Docker smoke test + git/GitHub still pending). Next: finish Stage 0,
-> then Stage 1.
-> **Last updated:** 2026-06-21
-> This document is the single source of truth for the project. It is written so that a
-> fresh AI session or a new collaborator can understand the project 100% without
-> re-explaining. Update it as decisions are made.
+> This document captures the product vision, the reasoning behind each decision, and the
+> staged build plan — the context a contributor needs to understand *why* Ravelin is built
+> the way it is. Current implementation status lives in the [README](./README.md).
 
 ---
 
-## 1. Why this project exists (goals)
+## 1. Why this project exists
 
-The owner is building this to achieve **three goals at once, weighted equally**:
-1. **Deepen AppSec skills** through genuine hands-on practice (secure coding, threat
-   modeling, security testing, DevSecOps).
-2. **Showcase Azure DevOps, CI/CD, C#, and .NET** — currently the most in-demand
-   skills for the owner's job search.
-3. **Be a genuinely useful tool**, not a throwaway demo.
+Ravelin is a portfolio and learning project with three goals, weighted equally:
 
-This is a **portfolio + learning + real-tool** project, built under **job-hunt time
-pressure** (owner can work full-time-ish on it, wants a strong showcase ASAP).
-
-### Owner's starting point
-- **AppSec:** Comfortable — knows OWASP Top 10, has applied secure coding / some
-  security testing. Wants to go deeper and build a portfolio of it.
-- **C#/.NET & Azure DevOps:** New to both. Needs every .NET and Azure choice explained
-  in plain language; build stages should double as learning.
+1. Practise AppSec and DevSecOps hands-on — secure coding, threat modelling, security
+   testing, and a CI pipeline that scans the application itself.
+2. Build something real with Azure DevOps, CI/CD, C#, and .NET, rather than a throwaway demo.
+3. Fill an actual gap: the accountability layer described below.
 
 ---
 
@@ -98,7 +81,7 @@ formats into one internal normalized Finding shape, so new sources are additive.
 
 ---
 
-## 5. Key showcase angles (what employers should see)
+## 5. What the project demonstrates
 
 - **AppSec:** secure-by-design (authn/authz/RBAC, input validation, secrets handling,
   tenant/role boundaries), threat model document, and **security tooling wired into the
@@ -265,22 +248,6 @@ Accounts: **Azure** (with free credit), **GitHub**, **Azure DevOps** org. Local 
 **.NET SDK** (latest LTS), **Docker**, **Terraform**, **Azure CLI** (`az`), **GitHub CLI**
 (`gh`), and (if doing Stage 9) a **JDK + Maven/Gradle**.
 
-### Tools / connectors / skills that help
-- **`ctx7` / find-docs** (already configured): pull current docs for .NET, ASP.NET Core,
-  EF Core, Blazor, Azure Container Apps, Terraform azurerm, Azure Pipelines — use instead
-  of relying on training data.
-- **CLIs as the integration surface:** `az`, `gh`, `terraform`, `docker`, `dotnet`.
-- **Optional MCP connectors (not yet configured):** a GitHub connector and/or an Azure
-  connector could let the assistant manage repos/PRs/resources directly. To be evaluated
-  if useful; CLIs cover most needs.
-- **claude-code-guide agent:** for questions about Claude Code / pipelines automation.
+### Toolchain
+The integration surface is CLIs: `az`, `gh`, `terraform`, `docker`, `dotnet`.
 
----
-
-## 7. Process agreement
-1. ✅ Understand the product fully (done — this document).
-2. ⏳ Walk through key technical decisions **one at a time**, plain language, flagging
-   anything costly or hard to undo.
-3. ⏳ Only then, a build plan in **small, reviewable stages** (not all at once).
-4. Along the way, call out any tools/connectors/skills that would specifically help and
-   how to connect them.
