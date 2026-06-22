@@ -1,0 +1,101 @@
+# Ravelin scans itself — "eats its own dog food" (PROJECT_VISION §9).
+# Dependencies (SCA), code (CodeQL SAST), IaC + Dockerfile misconfig, secrets, and the
+# built container image. Results land in the repo's Security tab as SARIF.
+#
+# Deliberately NOT triggered on push: the Azure DevOps pipeline owns deploy-on-push and is
+# gated on Microsoft-hosted parallelism. This runs on pull requests, a weekly schedule, and
+# on demand, so the two CI systems never contend.
+name: security
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write # upload SARIF to the Security tab
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build, test & dependency scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet restore Ravelin.slnx
+      - run: dotnet build Ravelin.slnx -c Release --no-restore
+      - run: dotnet test Ravelin.slnx -c Release --no-build --verbosity normal
+      - name: Dependency scan (SCA)
+        run: |
+          set -o pipefail
+          dotnet list Ravelin.slnx package --vulnerable --include-transitive 2>&1 | tee sca.txt
+          if grep -qiE "has the following vulnerable" sca.txt; then
+            echo "::error::Vulnerable NuGet packages detected"; exit 1
+          fi
+          echo "No vulnerable packages."
+
+  codeql:
+    name: CodeQL (C# SAST)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: csharp
+          build-mode: none
+      - uses: github/codeql-action/analyze@v3
+
+  trivy:
+    name: Trivy (IaC & secrets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Trivy
+        run: curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+      - name: IaC & Dockerfile misconfiguration scan
+        run: trivy config --format sarif --output trivy-iac.sarif --exit-code 0 .
+      - name: Upload IaC results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-iac.sarif
+          category: trivy-iac
+      - name: Secret scan
+        run: trivy fs --scanners secret --format sarif --output trivy-secret.sarif --exit-code 0 .
+      - name: Upload secret results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-secret.sarif
+          category: trivy-secret
+
+  container:
+    name: Container image scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Build image (Docker-less OCI tarball)
+        run: |
+          dotnet publish src/Ravelin/Ravelin.csproj -c Release \
+            -t:PublishContainer \
+            -p:ContainerArchiveOutputPath=${{ github.workspace }}/ravelin-image.tar \
+            --os linux --arch x64
+      - name: Install Trivy
+        run: curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+      - name: Scan image
+        run: trivy image --input ${{ github.workspace }}/ravelin-image.tar --format sarif --output trivy-image.sarif --exit-code 0
+      - name: Upload image results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
