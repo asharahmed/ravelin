@@ -1,5 +1,8 @@
 using System.Text;
 using System.Threading.RateLimiting;
+using Azure.Core;
+using Azure.Identity;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -27,6 +30,21 @@ builder.Services.AddHealthChecks()
 
 // Standardise error responses as RFC 9457 ProblemDetails (JSON) across the API.
 builder.Services.AddProblemDetails();
+
+// Persist DataProtection keys so antiforgery + password-reset tokens survive restarts and
+// scale-out. In Azure: an encrypted blob, read via the app's user-assigned managed identity.
+// Unset (local dev): the framework default (file-system / ephemeral).
+var dpBlobUri = builder.Configuration["DataProtection:BlobUri"];
+if (!string.IsNullOrWhiteSpace(dpBlobUri))
+{
+    var dpClientId = builder.Configuration["DataProtection:IdentityClientId"];
+    TokenCredential dpCredential = string.IsNullOrWhiteSpace(dpClientId)
+        ? new DefaultAzureCredential()
+        : new ManagedIdentityCredential(dpClientId);
+    builder.Services.AddDataProtection()
+        .SetApplicationName("Ravelin")
+        .PersistKeysToAzureBlobStorage(new Uri(dpBlobUri), dpCredential);
+}
 
 // OpenAPI document generation (API-first: the spec is published, see /openapi/v1.json).
 builder.Services.AddOpenApi();

@@ -202,6 +202,16 @@ resource "azurerm_container_app" "main" {
         secret_name = "reeval-token"
       }
 
+      # DataProtection key persistence — blob read via the app's managed identity.
+      env {
+        name  = "DataProtection__BlobUri"
+        value = "https://${azurerm_storage_account.dp.name}.blob.core.windows.net/${azurerm_storage_container.dp.name}/keys.xml"
+      }
+      env {
+        name  = "DataProtection__IdentityClientId"
+        value = azurerm_user_assigned_identity.app.client_id
+      }
+
       liveness_probe {
         transport = "HTTP"
         path      = "/health"
