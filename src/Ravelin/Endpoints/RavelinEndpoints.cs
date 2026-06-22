@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Ravelin.Auth;
@@ -153,6 +154,67 @@ public static class RavelinEndpoints
         // Token-authenticated JSON API — CSRF/antiforgery (a cookie-browser concern) does
         // not apply, and the global UseAntiforgery() would otherwise 400 these requests.
         .DisableAntiforgery();
+
+        // Native scanner adapters: pipe a tool's own JSON straight in — no transform step.
+        app.MapPost("/api/ingest/trivy", (HttpRequest http, ClaimsPrincipal user, IngestionService ingestion) =>
+                IngestRawAsync(http, user, ingestion, "trivy", TrivyAdapter.Parse))
+            .RequireAuthorization(policy => policy
+                .AddAuthenticationSchemes(ApiKeyAuthenticationHandler.SchemeName)
+                .RequireAuthenticatedUser())
+            .DisableAntiforgery();
+
+        app.MapPost("/api/ingest/grype", (HttpRequest http, ClaimsPrincipal user, IngestionService ingestion) =>
+                IngestRawAsync(http, user, ingestion, "grype", GrypeAdapter.Parse))
+            .RequireAuthorization(policy => policy
+                .AddAuthenticationSchemes(ApiKeyAuthenticationHandler.SchemeName)
+                .RequireAuthenticatedUser())
+            .DisableAntiforgery();
+    }
+
+    // Reads a raw scanner report from the body, maps it with the given adapter, and ingests
+    // it through the same pipeline as /api/ingest (dedup + auto-resolve + SLA).
+    private static async Task<IResult> IngestRawAsync(
+        HttpRequest http, ClaimsPrincipal user, IngestionService ingestion,
+        string tool, Func<string, IReadOnlyList<IncomingFinding>> parse)
+    {
+        var projectId = Guid.Parse(user.FindFirstValue(ApiKeyAuthenticationHandler.ProjectIdClaim)!);
+
+        string body;
+        using (var reader = new StreamReader(http.Body))
+        {
+            body = await reader.ReadToEndAsync();
+        }
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return Results.BadRequest("Request body is empty.");
+        }
+
+        IReadOnlyList<IncomingFinding> incoming;
+        try
+        {
+            incoming = parse(body);
+        }
+        catch (Exception ex) when (ex is JsonException or FormatException)
+        {
+            return Results.BadRequest($"Could not read the {tool} report: {ex.Message}");
+        }
+
+        if (incoming.Count > MaxFindingsPerScan)
+        {
+            return Results.BadRequest($"Findings are limited to {MaxFindingsPerScan} per scan.");
+        }
+
+        // An empty report is valid: it records a clean scan and auto-resolves what's now gone.
+        var (scan, result, openTotal) = await ingestion.IngestAsync(projectId, tool, null, incoming);
+        return Results.Ok(new ScanIngestResponse
+        {
+            ScanId = scan.Id,
+            Created = result.Created.Count,
+            Reopened = result.Reopened.Count,
+            Resolved = result.Resolved.Count,
+            Seen = result.Seen.Count,
+            OpenTotal = openTotal,
+        });
     }
 
     // --- Admin (bootstrap-token gate; replaced by RBAC in Stage 4) ----------------------
@@ -575,14 +637,7 @@ public static class RavelinEndpoints
     }
 
     // --- Helpers ------------------------------------------------------------------------
-    private static Severity ParseSeverity(string? value) => value?.Trim().ToLowerInvariant() switch
-    {
-        "critical" => Severity.Critical,
-        "high" => Severity.High,
-        "medium" or "moderate" => Severity.Medium,
-        "low" => Severity.Low,
-        _ => Severity.Unknown,
-    };
+    private static Severity ParseSeverity(string? value) => SeverityMap.Parse(value);
 
     private static ProjectDto ToDto(Project p, int openFindings) => new()
     {

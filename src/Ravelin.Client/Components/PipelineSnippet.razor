@@ -1,7 +1,8 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-@* Copy-paste integration snippets for wiring a CI pipeline to /api/ingest. *@
+@* Copy-paste integration snippets. Ravelin reads Trivy/Grype native JSON directly, so a
+   pipeline pipes the scanner's output straight to /api/ingest/{tool}. *@
 <div class="snip">
     <div class="snip-tabs" role="tablist">
         @foreach (var t in Tabs)
@@ -17,8 +18,8 @@
 @code {
     [Parameter] public string? ApiKey { get; set; }
 
-    private static readonly string[] Tabs = ["curl", "GitHub Actions", "Azure Pipelines"];
-    private string active = "curl";
+    private static readonly string[] Tabs = ["Trivy", "Grype", "GitHub Actions", "Azure Pipelines"];
+    private string active = "Trivy";
     private string copyLabel = "Copy";
 
     private string BaseUrl => Nav.BaseUri.TrimEnd('/');
@@ -26,9 +27,10 @@
 
     private string Current => active switch
     {
+        "Grype" => GrypeTpl.Replace("__BASE__", BaseUrl).Replace("__KEY__", KeyValue),
         "GitHub Actions" => GithubTpl.Replace("__BASE__", BaseUrl),
         "Azure Pipelines" => AzureTpl.Replace("__BASE__", BaseUrl),
-        _ => CurlTpl.Replace("__BASE__", BaseUrl).Replace("__KEY__", KeyValue),
+        _ => TrivyTpl.Replace("__BASE__", BaseUrl).Replace("__KEY__", KeyValue),
     };
 
     private async Task CopyAsync()
@@ -40,49 +42,41 @@
         copyLabel = "Copy";
     }
 
-    private const string CurlTpl = """
-        curl -X POST __BASE__/api/ingest \
-          -H "X-Api-Key: __KEY__" \
-          -H "Content-Type: application/json" \
-          -d '{
-            "tool": "trivy",
-            "findings": [
-              { "vulnerabilityId": "CVE-2024-21907", "packageName": "Newtonsoft.Json",
-                "packageVersion": "12.0.1", "title": "Improper handling of exceptional conditions",
-                "severity": "High", "cvssScore": 7.5, "fixedVersion": "13.0.1" }
-            ]
-          }'
+    // Scan and push in one step — Ravelin maps the scanner's native JSON; the project is
+    // derived from the API key, so the scope is the key, not the request.
+    private const string TrivyTpl = """
+        trivy fs --format json . \
+          | curl -sf -X POST __BASE__/api/ingest/trivy \
+              -H "X-Api-Key: __KEY__" \
+              -H "Content-Type: application/json" --data-binary @-
         """;
 
-    // Scan with Trivy, map its JSON to Ravelin's shape with jq, and push. The project is
-    // derived from the API key, so the scope is the key — not the request.
+    private const string GrypeTpl = """
+        grype dir:. -o json \
+          | curl -sf -X POST __BASE__/api/ingest/grype \
+              -H "X-Api-Key: __KEY__" \
+              -H "Content-Type: application/json" --data-binary @-
+        """;
+
     private const string GithubTpl = """
-        - name: Scan dependencies
+        - name: Scan dependencies (Trivy)
           run: trivy fs --format json --output trivy.json .
 
         - name: Push to Ravelin
           run: |
-            jq '{tool:"trivy", findings:[(.Results[].Vulnerabilities // [])[] | {
-              vulnerabilityId:.VulnerabilityID, packageName:.PkgName,
-              packageVersion:.InstalledVersion, title:.Title, description:.Description,
-              severity:.Severity, cvssScore:(.CVSS.nvd.V3Score // .CVSS.redhat.V3Score),
-              fixedVersion:.FixedVersion}]}' trivy.json \
-            | curl -sf -X POST __BASE__/api/ingest \
-                -H "X-Api-Key: ${{ secrets.RAVELIN_API_KEY }}" \
-                -H "Content-Type: application/json" --data-binary @-
+            curl -sf -X POST __BASE__/api/ingest/trivy \
+              -H "X-Api-Key: ${{ secrets.RAVELIN_API_KEY }}" \
+              -H "Content-Type: application/json" \
+              --data-binary @trivy.json
         """;
 
     private const string AzureTpl = """
         - script: |
             trivy fs --format json --output trivy.json .
-            jq '{tool:"trivy", findings:[(.Results[].Vulnerabilities // [])[] | {
-              vulnerabilityId:.VulnerabilityID, packageName:.PkgName,
-              packageVersion:.InstalledVersion, title:.Title, description:.Description,
-              severity:.Severity, cvssScore:(.CVSS.nvd.V3Score // .CVSS.redhat.V3Score),
-              fixedVersion:.FixedVersion}]}' trivy.json \
-            | curl -sf -X POST __BASE__/api/ingest \
-                -H "X-Api-Key: $(RAVELIN_API_KEY)" \
-                -H "Content-Type: application/json" --data-binary @-
-          displayName: Push to Ravelin
+            curl -sf -X POST __BASE__/api/ingest/trivy \
+              -H "X-Api-Key: $(RAVELIN_API_KEY)" \
+              -H "Content-Type: application/json" \
+              --data-binary @trivy.json
+          displayName: Scan & push to Ravelin
         """;
 }

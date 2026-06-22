@@ -86,6 +86,17 @@ curl -X POST https://<host>/api/ingest \
 # -> { "scanId": "...", "created": 1, "reopened": 0, "resolved": 0, "seen": 0, "openTotal": 1 }
 ```
 
+Or pipe a scanner's native output straight in — Ravelin maps Trivy and Grype JSON itself, no
+transform step:
+
+```bash
+trivy fs --format json . | curl -sf -X POST https://<host>/api/ingest/trivy \
+  -H "X-Api-Key: $RAVELIN_API_KEY" --data-binary @-
+
+grype dir:. -o json     | curl -sf -X POST https://<host>/api/ingest/grype \
+  -H "X-Api-Key: $RAVELIN_API_KEY" --data-binary @-
+```
+
 ## Authentication
 
 - **People** — ASP.NET Core Identity with JWTs and three roles: Admin, Analyst, Viewer, enforced
