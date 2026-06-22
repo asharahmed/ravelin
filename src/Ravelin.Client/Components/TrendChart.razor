@@ -9,20 +9,34 @@
 
     @if (HasData)
     {
-        <svg viewBox="0 0 @W @H" class="trend-svg" preserveAspectRatio="none" role="img"
+        @* Uniform scaling (no preserveAspectRatio="none"): geometry stays true — round
+           markers, even gridlines — and the SVG scales responsively with its width. *@
+        <svg viewBox="0 0 @F(W) @F(H)" class="trend-svg" role="img"
              aria-label="Findings opened versus resolved over the last @Points.Count weeks">
-            <defs>
-                <linearGradient id="trend-open-fill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" class="trend-stop-top" />
-                    <stop offset="100%" class="trend-stop-bottom" />
-                </linearGradient>
-            </defs>
-            <line class="trend-baseline" x1="0" y1="@BaseY.ToString(Inv)" x2="@W" y2="@BaseY.ToString(Inv)" />
-            <path class="trend-area" d="@OpenedArea" fill="url(#trend-open-fill)" />
-            <path class="trend-line trend-line-opened" d="@OpenedLine" />
-            <path class="trend-line trend-line-resolved" d="@ResolvedLine" />
-            <circle class="trend-dot trend-dot-opened" cx="@LastX.ToString(Inv)" cy="@LastOpenedY.ToString(Inv)" r="3.2" />
-            <circle class="trend-dot trend-dot-resolved" cx="@LastX.ToString(Inv)" cy="@LastResolvedY.ToString(Inv)" r="3.2" />
+            @* horizontal gridlines + y-axis value labels (built as markup: Razor reserves <text>) *@
+            @GridMarkup
+            <line class="trend-baseline" x1="@F(PadL)" y1="@F(BaseY)" x2="@F(W - PadR)" y2="@F(BaseY)" />
+
+            <path class="trend-area" d="@Area(p => p.Opened)" />
+            <path class="trend-line trend-line-resolved" d="@Smooth(p => p.Resolved)" />
+            <path class="trend-line trend-line-opened" d="@Smooth(p => p.Opened)" />
+
+            @* per-week hover columns: guide + markers + native tooltip *@
+            @for (var i = 0; i < Points.Count; i++)
+            {
+                var p = Points[i];
+                var cx = X(i);
+                <g class="trend-col">
+                    <title>Week of @p.WeekStart.ToString("MMM d"): @p.Opened opened, @p.Resolved resolved</title>
+                    <line class="trend-guide" x1="@F(cx)" y1="@F(PadT)" x2="@F(cx)" y2="@F(BaseY)" />
+                    <circle class="trend-mark trend-mark-resolved" cx="@F(cx)" cy="@F(Y(p.Resolved))" r="3" />
+                    <circle class="trend-mark trend-mark-opened" cx="@F(cx)" cy="@F(Y(p.Opened))" r="3" />
+                    <rect class="trend-hit" x="@F(cx - ColW / 2)" y="0" width="@F(ColW)" height="@F(H)" />
+                </g>
+            }
+
+            <circle class="trend-dot trend-dot-resolved" cx="@F(LastX)" cy="@F(Y(Points[^1].Resolved))" r="3.6" />
+            <circle class="trend-dot trend-dot-opened" cx="@F(LastX)" cy="@F(Y(Points[^1].Opened))" r="3.6" />
         </svg>
         <div class="trend-axis">
             <span>@Points[0].WeekStart.ToString("MMM d")</span>
@@ -39,28 +53,72 @@
     [Parameter] public IReadOnlyList<TrendPointDto> Points { get; set; } = [];
 
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
-    private const double W = 320, H = 120, PadT = 14, PadB = 10, PadX = 6;
+    private const double W = 600, H = 180, PadT = 16, PadB = 22, PadL = 26, PadR = 10;
 
+    private static string F(double v) => v.ToString("0.#", Inv);
+
+    private double ColW => Points.Count > 1 ? (W - PadL - PadR) / (Points.Count - 1) : W;
     private bool HasData => Points.Count >= 2 && Points.Any(p => p.Opened > 0 || p.Resolved > 0);
-    private double Max => Math.Max(1, Points.Max(p => Math.Max(p.Opened, p.Resolved)));
-    private double BaseY => H - PadB;
 
-    private double X(int i) => PadX + i * ((W - 2 * PadX) / (Points.Count - 1));
-    private double Y(int v) => PadT + (1 - v / Max) * (H - PadT - PadB);
-
-    private string OpenedLine => Line(p => p.Opened);
-    private string ResolvedLine => Line(p => p.Resolved);
-
-    private string Line(Func<TrendPointDto, int> sel)
+    // A "nice" axis maximum so the gridlines land on round numbers.
+    private int NiceMax
     {
-        var pts = Points.Select((p, i) => $"{X(i).ToString("F1", Inv)},{Y(sel(p)).ToString("F1", Inv)}");
-        return "M" + string.Join(" L", pts);
+        get
+        {
+            var raw = Math.Max(1, Points.Max(p => Math.Max(p.Opened, p.Resolved)));
+            if (raw <= 4) return raw;
+            if (raw <= 10) return (int)(Math.Ceiling(raw / 2.0) * 2);
+            return (int)(Math.Ceiling(raw / 5.0) * 5);
+        }
     }
 
-    private string OpenedArea =>
-        $"{OpenedLine} L{LastX.ToString("F1", Inv)},{BaseY.ToString("F1", Inv)} L{X(0).ToString("F1", Inv)},{BaseY.ToString("F1", Inv)} Z";
-
+    private double BaseY => H - PadB;
+    private double X(int i) => PadL + i * ((W - PadL - PadR) / (Points.Count - 1));
+    private double Y(double v) => PadT + (1 - v / NiceMax) * (H - PadT - PadB);
     private double LastX => X(Points.Count - 1);
-    private double LastOpenedY => Y(Points[^1].Opened);
-    private double LastResolvedY => Y(Points[^1].Resolved);
+
+    private MarkupString GridMarkup
+    {
+        get
+        {
+            var max = NiceMax;
+            var step = max <= 4 ? 1 : max <= 10 ? 2 : 5;
+            var sb = new System.Text.StringBuilder();
+            for (var v = 0; v <= max; v += step)
+            {
+                var gy = Y(v);
+                sb.Append($"<line class=\"trend-grid\" x1=\"{F(PadL)}\" y1=\"{F(gy)}\" x2=\"{F(W - PadR)}\" y2=\"{F(gy)}\"></line>");
+                sb.Append($"<text class=\"trend-ylabel\" x=\"{F(PadL - 6)}\" y=\"{F(gy + 3)}\" text-anchor=\"end\">{v}</text>");
+            }
+            return new MarkupString(sb.ToString());
+        }
+    }
+
+    // Smooth path via Catmull-Rom → cubic béziers, with control points clamped to the
+    // plot band so the curve never overshoots below 0 or above the axis max.
+    private string Smooth(Func<TrendPointDto, int> sel)
+    {
+        var pts = Points.Select((p, i) => (x: X(i), y: Y(sel(p)))).ToArray();
+        if (pts.Length < 3)
+            return "M" + string.Join(" L", pts.Select(p => $"{F(p.x)},{F(p.y)}"));
+
+        double Clamp(double y) => Math.Clamp(y, PadT, BaseY);
+        var sb = new System.Text.StringBuilder($"M{F(pts[0].x)},{F(pts[0].y)}");
+        for (var i = 0; i < pts.Length - 1; i++)
+        {
+            var p0 = pts[Math.Max(i - 1, 0)];
+            var p1 = pts[i];
+            var p2 = pts[i + 1];
+            var p3 = pts[Math.Min(i + 2, pts.Length - 1)];
+            var c1x = p1.x + (p2.x - p0.x) / 6.0;
+            var c1y = Clamp(p1.y + (p2.y - p0.y) / 6.0);
+            var c2x = p2.x - (p3.x - p1.x) / 6.0;
+            var c2y = Clamp(p2.y - (p3.y - p1.y) / 6.0);
+            sb.Append($" C{F(c1x)},{F(c1y)} {F(c2x)},{F(c2y)} {F(p2.x)},{F(p2.y)}");
+        }
+        return sb.ToString();
+    }
+
+    private string Area(Func<TrendPointDto, int> sel) =>
+        $"{Smooth(sel)} L{F(LastX)},{F(BaseY)} L{F(PadL)},{F(BaseY)} Z";
 }

@@ -1,0 +1,33 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<div class="globe" aria-hidden="true">
+    <canvas @ref="_canvas" class="globe-canvas"></canvas>
+    <div class="globe-caption">
+        <span class="globe-dot"></span>
+        <span class="led-label">Worldwide scan coverage</span>
+    </div>
+</div>
+
+@code {
+    private ElementReference _canvas;
+    private long _id = -1;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try { _id = await JS.InvokeAsync<long>("ravelinGlobe.start", _canvas); }
+            catch { /* JS not ready / prerender — globe is decorative, fail quietly */ }
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_id >= 0)
+        {
+            try { await JS.InvokeVoidAsync("ravelinGlobe.stop", _id); }
+            catch { }
+        }
+    }
+}

@@ -1,9 +1,7 @@
-@inject IJSRuntime JS
-
 <div class="stat-tile @AccentClass">
     <div class="ledger-eyebrow">@Label</div>
     <div class="stat-value ledger-num">
-        <span @ref="numRef">@Value.ToString(Fmt)</span><span class="stat-suffix">@Suffix</span>
+        <span>@Value.ToString(Fmt)</span><span class="stat-suffix">@Suffix</span>
     </div>
     @if (!string.IsNullOrWhiteSpace(Caption))
     {
@@ -20,14 +18,5 @@
     [Parameter] public string? AccentClass { get; set; }
     [Parameter] public string? Caption { get; set; }
 
-    private ElementReference numRef;
     private string Fmt => "F" + Decimals;
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            await JS.InvokeVoidAsync("ravelinCountUp", numRef, Value, 1100, Decimals);
-        }
-    }
 }

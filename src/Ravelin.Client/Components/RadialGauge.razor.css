@@ -1,76 +1,69 @@
-.gauge {
-    --gauge: var(--brand);
-    position: relative;
+.balance {
+    --bal: var(--ink);
     width: 100%;
-    max-width: 230px;
-    aspect-ratio: 1;
-    margin-inline: auto;
 }
+.balance.bal-good { --bal: var(--sla-ontrack); }
+.balance.bal-warn { --bal: var(--amber); }
+.balance.bal-bad  { --bal: var(--red); }
 
-.gauge-good { --gauge: var(--sla-ontrack); }
-.gauge-warn { --gauge: var(--sla-duesoon); }
-.gauge-bad { --gauge: var(--sla-breached); }
-
-.gauge-svg {
-    width: 100%;
-    height: 100%;
-    transform: rotate(-90deg);
-}
-
-.gauge-track {
-    fill: none;
-    stroke: var(--line);
-    stroke-width: 9;
-}
-
-.gauge-arc {
-    fill: none;
-    stroke: var(--gauge);
-    stroke-width: 9;
-    stroke-linecap: round;
-    stroke-dasharray: 100;
-    stroke-dashoffset: 100;
-    filter: drop-shadow(0 2px 6px color-mix(in oklch, var(--gauge) 35%, transparent));
-    animation: gauge-fill 1.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-@keyframes gauge-fill {
-    to { stroke-dashoffset: calc(100 - var(--p)); }
-}
-
-.gauge-center {
-    position: absolute;
-    inset: 0;
+.balance-head {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.2rem;
+    align-items: baseline;
+    gap: 0.7rem;
+    flex-wrap: wrap;
 }
 
-.gauge-value {
+.balance-figure {
     font-family: var(--font-display);
-    font-weight: 600;
-    font-size: clamp(2.6rem, 7vw, 3.6rem);
-    line-height: 1;
-    color: var(--ink);
+    font-weight: 400;
+    font-size: clamp(2.8rem, 8vw, 4.4rem);
+    line-height: 0.92;
+    color: var(--bal);
+    letter-spacing: -0.01em;
     display: flex;
     align-items: baseline;
 }
-
-.gauge-pct {
-    font-size: 0.4em;
+.balance-pct {
+    font-size: 0.34em;
     color: var(--ink-faint);
-    margin-left: 0.08em;
+    margin-left: 0.1em;
+}
+.balance-label {
+    color: var(--ink-faint);
+    padding-bottom: 0.25rem;
 }
 
-.gauge-label {
-    color: color-mix(in oklch, var(--gauge) 60%, var(--ink-soft));
+/* The balance bar — compliant share filled, the breached remainder in red. */
+/* Settled (within SLA) is always neutral ink; the breached remainder is red.
+   The figure carries the good/warn/bad level colour — the bar shows the split. */
+.balance-bar {
+    position: relative;
+    height: 8px;
+    margin-top: 1rem;
+    border-radius: 999px;
+    background: color-mix(in oklch, var(--red) 70%, var(--surface));
+    overflow: hidden;
 }
+.balance-settled {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--w);
+    background: var(--ink);
+    transform-origin: left;
+    animation: bal-fill 1s var(--ease) both;
+}
+.balance-foot {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--ink-faint);
+}
+.balance-foot span:last-child { color: color-mix(in oklch, var(--red) 70%, var(--ink-faint)); }
+
+@keyframes bal-fill { from { width: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
-    .gauge-arc {
-        animation: none;
-        stroke-dashoffset: calc(100 - var(--p));
-    }
+    .balance-settled { animation: none; }
 }

@@ -1,0 +1,55 @@
+@using Ravelin.Client.Services
+@implements IDisposable
+@inject ToastService Toasts
+
+<div class="toast-host" aria-live="polite" aria-atomic="false">
+    @foreach (var t in Toasts.Toasts)
+    {
+        <div class="toast toast-@t.Kind.ToString().ToLowerInvariant() @(_leaving.Contains(t.Id) ? "is-leaving" : "")"
+             role="status" @key="t.Id">
+            <span class="toast-mark" aria-hidden="true"></span>
+            <span class="toast-msg">@t.Message</span>
+            <button class="toast-close" aria-label="Dismiss" @onclick="() => Dismiss(t.Id)">&times;</button>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly HashSet<Guid> _seen = new();
+    private readonly HashSet<Guid> _leaving = new();
+
+    protected override void OnInitialized() => Toasts.OnChange += OnChange;
+
+    private async void OnChange()
+    {
+        // Schedule auto-dismiss for any toast we haven't seen yet.
+        foreach (var t in Toasts.Toasts)
+        {
+            if (_seen.Add(t.Id))
+            {
+                var id = t.Id;
+                _ = AutoDismissAsync(id);
+            }
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task AutoDismissAsync(Guid id)
+    {
+        await Task.Delay(Toasts.DefaultDuration);
+        await Dismiss(id);
+    }
+
+    private async Task Dismiss(Guid id)
+    {
+        if (!_seen.Contains(id) || _leaving.Contains(id)) return;
+        _leaving.Add(id);
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(260); // let the exit animation play
+        _leaving.Remove(id);
+        _seen.Remove(id);
+        Toasts.Remove(id);
+    }
+
+    public void Dispose() => Toasts.OnChange -= OnChange;
+}

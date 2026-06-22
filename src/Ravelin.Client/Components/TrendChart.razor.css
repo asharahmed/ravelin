@@ -8,64 +8,102 @@
     display: flex;
     gap: 1.1rem;
 }
-
 .trend-key {
     display: inline-flex;
     align-items: center;
-    gap: 0.4em;
-    font-size: 0.78rem;
-    font-weight: 500;
+    gap: 0.45em;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     color: var(--ink-soft);
 }
 .trend-key::before {
     content: "";
-    width: 0.85em;
-    height: 0.85em;
-    border-radius: 3px;
+    width: 0.7em;
+    height: 0.7em;
 }
-.trend-key-opened::before { background: var(--brand); }
-.trend-key-resolved::before { background: var(--sla-ontrack); }
+.trend-key-opened::before { background: var(--red); }
+.trend-key-resolved::before { background: var(--ink); }
 
+/* Uniform scaling: aspect ratio comes from the viewBox, so geometry never distorts. */
 .trend-svg {
     width: 100%;
-    height: clamp(120px, 22vh, 180px);
+    height: auto;
+    display: block;
     overflow: visible;
 }
 
-.trend-baseline {
+.trend-grid {
     stroke: var(--line);
     stroke-width: 1;
     vector-effect: non-scaling-stroke;
 }
+.trend-baseline {
+    stroke: var(--line-strong);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+.trend-ylabel {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    fill: var(--ink-faint);
+}
 
-.trend-stop-top { stop-color: var(--brand); stop-opacity: 0.22; }
-.trend-stop-bottom { stop-color: var(--brand); stop-opacity: 0; }
-
+/* Subtle flat shade under the opened (liability) line — not a gradient widget. */
 .trend-area {
-    animation: trend-fade 1s ease-out both;
+    fill: var(--red);
+    opacity: 0.06;
+    animation: trend-fade 0.9s ease-out both;
 }
 
 .trend-line {
     fill: none;
-    stroke-width: 2.5;
+    stroke-width: 2.25;
     vector-effect: non-scaling-stroke;
     stroke-linecap: round;
     stroke-linejoin: round;
-    stroke-dasharray: 1000;
-    stroke-dashoffset: 1000;
-    animation: trend-draw 1.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    /* Solid/visible at rest; the dash only exists during the draw-in keyframe. */
+    animation: trend-draw 1.3s var(--ease) both;
 }
-.trend-line-opened { stroke: var(--brand); }
-.trend-line-resolved { stroke: var(--sla-ontrack); animation-delay: 0.15s; }
+.trend-line-opened { stroke: var(--red); }
+.trend-line-resolved { stroke: var(--ink); animation-delay: 0.12s; }
 
-.trend-dot { stroke: var(--surface-raised); stroke-width: 2; animation: trend-fade 0.6s ease-out 1.2s both; }
-.trend-dot-opened { fill: var(--brand); }
-.trend-dot-resolved { fill: var(--sla-ontrack); }
+.trend-dot {
+    stroke: var(--surface-raised);
+    stroke-width: 2;
+    animation: trend-fade 0.5s ease-out 1.1s both;
+}
+.trend-dot-opened { fill: var(--red); }
+.trend-dot-resolved { fill: var(--ink); }
+
+/* Per-week hover columns */
+.trend-hit { fill: transparent; cursor: crosshair; }
+.trend-guide {
+    stroke: var(--ink-faint);
+    stroke-width: 1;
+    stroke-dasharray: 2 3;
+    vector-effect: non-scaling-stroke;
+    opacity: 0;
+    transition: opacity var(--dur-fast) ease;
+}
+.trend-mark {
+    opacity: 0;
+    stroke: var(--surface-raised);
+    stroke-width: 1.5;
+    transition: opacity var(--dur-fast) ease;
+}
+.trend-mark-opened { fill: var(--red); }
+.trend-mark-resolved { fill: var(--ink); }
+.trend-col:hover .trend-guide { opacity: 0.6; }
+.trend-col:hover .trend-mark { opacity: 1; }
 
 .trend-axis {
     display: flex;
     justify-content: space-between;
-    font-size: 0.72rem;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.04em;
     color: var(--ink-faint);
 }
 
@@ -76,9 +114,13 @@
     text-align: center;
 }
 
-@keyframes trend-draw { to { stroke-dashoffset: 0; } }
-@keyframes trend-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes trend-draw {
+    from { stroke-dasharray: 1400; stroke-dashoffset: 1400; }
+    to { stroke-dasharray: 1400; stroke-dashoffset: 0; }
+}
+@keyframes trend-fade { from { opacity: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
-    .trend-line, .trend-area, .trend-dot { animation: none; stroke-dashoffset: 0; opacity: 1; }
+    .trend-line, .trend-area, .trend-dot { animation: none; }
+    .trend-area { opacity: 0.06; }
 }

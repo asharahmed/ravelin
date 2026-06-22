@@ -1,29 +1,36 @@
 @inject IJSRuntime JS
 
-<div class="gauge @LevelClass" style="--p:@Percent.ToString(System.Globalization.CultureInfo.InvariantCulture);">
-    <svg viewBox="0 0 120 120" class="gauge-svg" role="img" aria-label="@Label @Percent.ToString("F0")%">
-        <circle class="gauge-track" cx="60" cy="60" r="52" />
-        <circle class="gauge-arc" cx="60" cy="60" r="52" pathLength="100" />
-    </svg>
-    <div class="gauge-center">
-        <div class="gauge-value ledger-num"><span @ref="numRef">@Percent.ToString("F0")</span><span class="gauge-pct">%</span></div>
-        <div class="gauge-label ledger-eyebrow">@Label</div>
+@* A ledger balance, not a gauge: the compliant share settled in black ink,
+   the remainder carried in red. *@
+<div class="balance @LevelClass">
+    <div class="balance-head">
+        <div class="balance-figure led-figure"><span @ref="numRef">@Percent.ToString("F0")</span><span class="balance-pct">%</span></div>
+        <div class="balance-label led-label">@Label</div>
+    </div>
+    <div class="balance-bar" role="img" aria-label="@Label @Percent.ToString("F0")%">
+        <span class="balance-settled" style="--w:@Inv(Percent)%;"></span>
+    </div>
+    <div class="balance-foot">
+        <span>Within SLA</span>
+        <span>Breached</span>
     </div>
 </div>
 
 @code {
     [Parameter] public double Percent { get; set; }
-    [Parameter] public string Label { get; set; } = "compliant";
+    [Parameter] public string Label { get; set; } = "within SLA";
 
     private ElementReference numRef;
 
-    private string LevelClass => Percent >= 90 ? "gauge-good" : Percent >= 70 ? "gauge-warn" : "gauge-bad";
+    private string LevelClass => Percent >= 90 ? "bal-good" : Percent >= 70 ? "bal-warn" : "bal-bad";
+
+    private static string Inv(double v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            await JS.InvokeVoidAsync("ravelinCountUp", numRef, Percent, 1300, 0);
+            await JS.InvokeVoidAsync("ravelinCountUp", numRef, Percent, 1100, 0);
         }
     }
 }

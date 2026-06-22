@@ -1,9 +1,8 @@
-<div class="bar-row">
-    <span class="bar-label">@Label</span>
-    <span class="bar-track">
-        <span class="bar-fill @ColorClass" style="--w:@Width.ToString(System.Globalization.CultureInfo.InvariantCulture)%;"></span>
-    </span>
-    <span class="bar-value ledger-num">@Value</span>
+<div class="led-line @ColorClass">
+    <span class="led-tick" aria-hidden="true"></span>
+    <span class="leader-label">@Label</span>
+    <span class="leader-fill"></span>
+    <span class="leader-value led-figure">@Value</span>
 </div>
 
 @code {
@@ -12,6 +11,4 @@
     [Parameter] public int Max { get; set; } = 1;
     /// <summary>A sev-* or sla-* class (sets --chip-color).</summary>
     [Parameter] public string ColorClass { get; set; } = "";
-
-    private double Width => Max <= 0 ? 0 : Math.Max(Value > 0 ? 4 : 0, (double)Value / Max * 100);
 }
