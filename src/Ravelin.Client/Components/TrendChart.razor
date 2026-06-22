@@ -87,8 +87,10 @@
             for (var v = 0; v <= max; v += step)
             {
                 var gy = Y(v);
-                sb.Append($"<line class=\"trend-grid\" x1=\"{F(PadL)}\" y1=\"{F(gy)}\" x2=\"{F(W - PadR)}\" y2=\"{F(gy)}\"></line>");
-                sb.Append($"<text class=\"trend-ylabel\" x=\"{F(PadL - 6)}\" y=\"{F(gy + 3)}\" text-anchor=\"end\">{v}</text>");
+                // Styles are inline because these elements are injected as raw markup, which
+                // Blazor's scoped CSS can't reach — so it falls back to black (invisible in dark).
+                sb.Append($"<line class=\"trend-grid\" style=\"stroke:var(--line);stroke-width:1\" x1=\"{F(PadL)}\" y1=\"{F(gy)}\" x2=\"{F(W - PadR)}\" y2=\"{F(gy)}\"></line>");
+                sb.Append($"<text class=\"trend-ylabel\" style=\"fill:var(--ink-faint);font-family:var(--font-mono);font-size:9px\" x=\"{F(PadL - 6)}\" y=\"{F(gy + 3)}\" text-anchor=\"end\">{v}</text>");
             }
             return new MarkupString(sb.ToString());
         }
