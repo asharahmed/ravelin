@@ -1,15 +1,23 @@
-# Ravelin
+<p align="center">
+  <img src="./docs/icon.png" alt="Ravelin" width="96" height="96" />
+</p>
+
+<h1 align="center">Ravelin</h1>
+
+<p align="center"><b>Vendor-neutral vulnerability SLA &amp; compliance tracker.</b></p>
+
+<p align="center">
+  <a href="https://dotnet.microsoft.com/"><img alt=".NET 10" src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white"></a>
+  <a href="https://learn.microsoft.com/aspnet/core/blazor/"><img alt="Blazor WebAssembly" src="https://img.shields.io/badge/Blazor-WASM-512BD4?logo=blazor&logoColor=white"></a>
+  <a href="https://azure.microsoft.com/products/container-apps"><img alt="Azure Container Apps" src="https://img.shields.io/badge/Azure-Container%20Apps-0078D4?logo=microsoftazure&logoColor=white"></a>
+  <a href="./infra"><img alt="IaC: Terraform" src="https://img.shields.io/badge/IaC-Terraform-7B42BC?logo=terraform&logoColor=white"></a>
+  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-success"></a>
+</p>
 
 Ravelin tracks remediation SLAs for the dependency vulnerabilities your scanners already find.
 CI pushes scan results to its API; Ravelin gives each finding a deadline based on severity,
 flags the ones that miss it, tracks the trend over time, and exports an audit report. It's
 vendor-neutral, API-first, and self-hosted.
-
-[![.NET](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
-[![Blazor WebAssembly](https://img.shields.io/badge/Blazor-WASM-512BD4?logo=blazor&logoColor=white)](https://learn.microsoft.com/aspnet/core/blazor/)
-[![Azure Container Apps](https://img.shields.io/badge/Azure-Container%20Apps-0078D4?logo=microsoftazure&logoColor=white)](https://azure.microsoft.com/products/container-apps)
-[![IaC: Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC?logo=terraform&logoColor=white)](./infra)
-[![License: MIT](https://img.shields.io/badge/License-MIT-success)](./LICENSE)
 
 > A *ravelin* is a triangular outwork built in front of a fortress wall. The logo is its salient.
 
