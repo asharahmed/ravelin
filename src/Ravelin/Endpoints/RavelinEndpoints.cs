@@ -56,6 +56,7 @@ public static class RavelinEndpoints
                 Roles = roles.ToList(),
             });
         })
+        .RequireRateLimiting("auth")
         .DisableAntiforgery();
 
         // Self-service signup. New accounts are ALWAYS read-only Viewers — registration
@@ -89,6 +90,7 @@ public static class RavelinEndpoints
                 Roles = roles.ToList(),
             });
         })
+        .RequireRateLimiting("auth")
         .DisableAntiforgery();
     }
 
@@ -151,6 +153,7 @@ public static class RavelinEndpoints
         .RequireAuthorization(policy => policy
             .AddAuthenticationSchemes(ApiKeyAuthenticationHandler.SchemeName)
             .RequireAuthenticatedUser())
+        .RequireRateLimiting("ingest")
         // Token-authenticated JSON API — CSRF/antiforgery (a cookie-browser concern) does
         // not apply, and the global UseAntiforgery() would otherwise 400 these requests.
         .DisableAntiforgery();
@@ -161,6 +164,7 @@ public static class RavelinEndpoints
             .RequireAuthorization(policy => policy
                 .AddAuthenticationSchemes(ApiKeyAuthenticationHandler.SchemeName)
                 .RequireAuthenticatedUser())
+            .RequireRateLimiting("ingest")
             .DisableAntiforgery();
 
         app.MapPost("/api/ingest/grype", (HttpRequest http, ClaimsPrincipal user, IngestionService ingestion) =>
@@ -168,6 +172,7 @@ public static class RavelinEndpoints
             .RequireAuthorization(policy => policy
                 .AddAuthenticationSchemes(ApiKeyAuthenticationHandler.SchemeName)
                 .RequireAuthenticatedUser())
+            .RequireRateLimiting("ingest")
             .DisableAntiforgery();
     }
 

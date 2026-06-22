@@ -1,5 +1,7 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using Ravelin.Auth;
@@ -21,6 +23,27 @@ builder.Services.AddHealthChecks();
 
 // OpenAPI document generation (API-first: the spec is published, see /openapi/v1.json).
 builder.Services.AddOpenApi();
+
+// Behind Azure Container Apps' ingress: trust X-Forwarded-* so the real client IP/scheme
+// is used (rate limiting partitions by client IP; https scheme avoids redirect loops).
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+// Rate limiting: cap brute-force on auth and abuse on ingestion, partitioned per client IP.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    static string ClientKey(HttpContext ctx) => ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+    options.AddPolicy("auth", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ClientKey(ctx), _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+    options.AddPolicy("ingest", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ClientKey(ctx), _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1) }));
+});
 
 // EF Core / Azure SQL + application services. Connection string comes from configuration
 // ("ConnectionStrings:RavelinDb"); in Azure Container Apps it's injected as the env var
@@ -83,6 +106,31 @@ catch (Exception ex)
         .LogError(ex, "Startup seeding failed; continuing without it.");
 }
 
+// Honour the ingress's forwarded headers first, so downstream sees the real client IP/scheme.
+app.UseForwardedHeaders();
+
+// Security response headers. The CSP guards the app UI; the Scalar reference and the OpenAPI
+// spec are excluded (Scalar's bundle needs different sources). script-src keeps 'unsafe-inline'
+// only because Blazor emits an inline import map — everything else is locked to same-origin.
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers["X-Content-Type-Options"] = "nosniff";
+    headers["X-Frame-Options"] = "DENY";
+    headers["Referrer-Policy"] = "no-referrer";
+    headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=()";
+
+    var path = context.Request.Path;
+    if (!path.StartsWithSegments("/scalar") && !path.StartsWithSegments("/openapi"))
+    {
+        headers["Content-Security-Policy"] =
+            "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; " +
+            "script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
+            "img-src 'self' data:; font-src 'self'; connect-src 'self'; form-action 'self'";
+    }
+    await next();
+});
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -104,6 +152,7 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 app.UseAntiforgery();
 
 app.MapStaticAssets();

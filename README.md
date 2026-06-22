@@ -179,6 +179,9 @@ Ravelin is a security tool, so it's built to model good practice and to scan its
 
 - Scan payloads are treated as untrusted and validated at the API boundary.
 - API keys are hashed; RBAC is enforced per endpoint, deny-by-default.
+- A Content-Security-Policy and the standard security headers (`X-Content-Type-Options`,
+  `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) are sent on every response.
+- Auth and ingestion endpoints are rate-limited per client IP (brute-force / abuse defence).
 - Secrets are delivered as Container App secrets (Key Vault is on the roadmap) and never logged.
 - The CI pipeline scans Ravelin's own dependencies, code, container image, and IaC.
 
