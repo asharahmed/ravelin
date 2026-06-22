@@ -3,52 +3,206 @@
 @inject HttpClient Http
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthState
+@inject IJSRuntime JS
 
 <PageTitle>Ravelin — vulnerability SLA &amp; compliance tracker</PageTitle>
 
 <div class="landing">
-    <div class="landing-top">
-        <div class="landing-inner ledger-rise">
-            <div class="ledger-eyebrow">Vulnerability SLA &amp; compliance</div>
-            <h1 class="ledger-display landing-title">Every vulnerability gets a deadline.</h1>
-            <p class="landing-lead">
+
+    @* ───────── Hero ───────── *@
+    <section class="hero">
+        <div class="hero-copy ledger-rise">
+            <span class="hero-eyebrow">
+                <span class="he-dot"></span>Vulnerability SLA &amp; compliance
+            </span>
+            <h1 class="ledger-display hero-title">
+                Every vulnerability<br />gets a <span class="hero-em">deadline</span>.
+            </h1>
+            <p class="hero-lead">
                 Ravelin takes the dependency scans your CI already runs and holds each finding to a
-                remediation SLA based on its severity. You see what's overdue, where compliance is
+                remediation SLA based on its severity — so you see what's overdue, where compliance is
                 slipping, and how it's trending.
             </p>
 
-            <div class="landing-cta">
-                <a class="cta-primary" href="login">Sign in</a>
-                <span class="cta-status">
-                    <span class="status-dot @(apiUp ? "up" : "down")"></span>
-                    @(apiUp ? "API operational" : "checking…")
-                </span>
+            <div class="hero-cta">
+                <a class="cta-primary" href="login">
+                    Sign in
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" /></svg>
+                </a>
+                <a class="cta-ghost" href="#how">See how it works</a>
+            </div>
+
+            <div class="hero-trust">
+                <span class="trust-item"><span class="status-dot @(apiUp ? "up" : "down")"></span>@(apiUp ? "API operational" : "checking…")</span>
+                <span class="trust-sep"></span>
+                <span class="trust-item">Open source</span>
+                <span class="trust-sep"></span>
+                <span class="trust-item">Scans its own supply chain</span>
             </div>
         </div>
 
-        <div class="landing-viz ledger-rise" style="animation-delay:.12s">
+        <div class="hero-viz ledger-rise" style="animation-delay:.12s">
             <Globe />
         </div>
-    </div>
+    </section>
 
-    <dl class="landing-points">
-            <div>
-                <dt class="ledger-display">Severity-based SLAs</dt>
-                <dd>Each finding inherits a remediation deadline from its severity. Breaches surface the moment they happen.</dd>
+    @* ───────── SLA windows ribbon ───────── *@
+    <section class="ribbon reveal">
+        <div class="ribbon-label">Default remediation windows</div>
+        <div class="ribbon-grid">
+            @foreach (var w in Windows)
+            {
+                <div class="win @w.Cls">
+                    <span class="win-sev">@w.Sev</span>
+                    <span class="win-days">@w.Days<small>days</small></span>
+                </div>
+            }
+        </div>
+    </section>
+
+    @* ───────── How it works ───────── *@
+    <section id="how" class="how reveal">
+        <header class="sec-head">
+            <span class="ledger-eyebrow">How it works</span>
+            <h2 class="ledger-display sec-title">Three moves from scan to accountability.</h2>
+        </header>
+        <ol class="steps">
+            <li class="step">
+                <span class="entry-no">01</span>
+                <h3 class="step-title">Push your scans</h3>
+                <p class="step-body">Your CI sends SCA results to one authenticated endpoint using a scoped, hashed API key. Ravelin deduplicates findings and auto-resolves anything that's gone.</p>
+            </li>
+            <li class="step">
+                <span class="entry-no">02</span>
+                <h3 class="step-title">Get deadlines</h3>
+                <p class="step-body">Each finding inherits a remediation SLA from its severity. The clock starts the moment it's first seen — no spreadsheets, no manual triage queue.</p>
+            </li>
+            <li class="step">
+                <span class="entry-no">03</span>
+                <h3 class="step-title">Stay accountable</h3>
+                <p class="step-body">Breaches surface the instant they happen. Compliance trends week over week, and every suppression carries a written justification for the audit.</p>
+            </li>
+        </ol>
+    </section>
+
+    @* ───────── Product preview ───────── *@
+    <section class="preview reveal">
+        <header class="sec-head">
+            <span class="ledger-eyebrow">The ledger</span>
+            <h2 class="ledger-display sec-title">Your whole posture, on one page.</h2>
+        </header>
+
+        <div class="pc ledger-panel">
+            <div class="pc-chrome">
+                <span class="pc-dot"></span><span class="pc-dot"></span><span class="pc-dot"></span>
+                <span class="pc-route">ravelin / posture</span>
             </div>
-            <div>
-                <dt class="ledger-display">Trends over time</dt>
-                <dd>Opened versus resolved and compliance percentage, per project and across every project.</dd>
+
+            <div class="pc-grid">
+                <div class="pc-gauge">
+                    <RadialGauge Percent="76.9" Label="within SLA" />
+                </div>
+                <div class="pc-tiles">
+                    <StatTile Label="Open findings" Value="64" Caption="across 4 projects" />
+                    <StatTile Label="Breached" Value="3" AccentClass="accent-breached" Caption="past deadline" />
+                    <StatTile Label="Due soon" Value="3" AccentClass="accent-duesoon" Caption="closing window" />
+                </div>
+                <div class="pc-bars">
+                    <div class="pc-sub">Open by severity</div>
+                    <BarMeter Label="Critical" Value="3" Max="32" ColorClass="sev-critical" />
+                    <BarMeter Label="High" Value="11" Max="32" ColorClass="sev-high" />
+                    <BarMeter Label="Medium" Value="18" Max="32" ColorClass="sev-medium" />
+                    <BarMeter Label="Low" Value="32" Max="32" ColorClass="sev-low" />
+                </div>
+                <div class="pc-trend">
+                    <div class="pc-sub">Opened vs resolved · 8 weeks</div>
+                    <TrendChart Points="Trend" />
+                </div>
             </div>
-            <div>
-                <dt class="ledger-display">Auditable triage</dt>
-                <dd>Marking a finding a false positive or accepted risk requires a written justification.</dd>
-            </div>
-        </dl>
+        </div>
+    </section>
+
+    @* ───────── Features ───────── *@
+    <section class="features reveal">
+        <header class="sec-head">
+            <span class="ledger-eyebrow">Built like a security tool</span>
+            <h2 class="ledger-display sec-title">Accountability, not just another scanner.</h2>
+        </header>
+        <div class="feat-grid">
+            @foreach (var f in Features)
+            {
+                <article class="feat">
+                    <span class="feat-icon">@((MarkupString)f.Icon)</span>
+                    <h3 class="feat-title">@f.Title</h3>
+                    <p class="feat-body">@f.Body</p>
+                </article>
+            }
+        </div>
+    </section>
+
+    @* ───────── Closing CTA ───────── *@
+    <section class="cta-band reveal">
+        <div class="cta-band-inner">
+            <h2 class="ledger-display cta-band-title">Give every finding a deadline.</h2>
+            <p class="cta-band-sub">Vendor-neutral, API-first, and open source. Point your pipeline at it and watch the posture build.</p>
+            <a class="cta-primary cta-lg" href="login">
+                Sign in
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" /></svg>
+            </a>
+        </div>
+    </section>
+
 </div>
 
 @code {
     private bool apiUp;
+
+    private record Window(string Sev, int Days, string Cls);
+    private static readonly Window[] Windows =
+    [
+        new("Critical", 7, "win--critical"),
+        new("High", 30, "win--high"),
+        new("Medium", 90, "win--medium"),
+        new("Low", 180, "win--low"),
+    ];
+
+    private record Feature(string Title, string Body, string Icon);
+    private static readonly Feature[] Features =
+    [
+        new("Severity-based SLAs",
+            "Critical to low, each tier carries its own remediation window. Re-baseline the policy and open findings re-clock instantly.",
+            Ico("M12 2 3 6v6c0 5 3.8 9.7 9 11 5.2-1.3 9-6 9-11V6l-9-4z")),
+        new("Trends over time",
+            "Opened versus resolved, week over week, with a compliance percentage — per project and across every project.",
+            Ico("M3 17l5-5 4 4 8-9 M21 7v6 M21 7h-6")),
+        new("Auditable triage",
+            "False-positive or accepted-risk? Ravelin requires a written justification, and keeps it on the record.",
+            Ico("M9 12l2 2 4-4 M21 12a9 9 0 11-18 0 9 9 0 0118 0z")),
+        new("Scoped API keys",
+            "Pipelines authenticate with hashed, rotatable keys bound to a single project. The key — never the route — decides scope.",
+            Ico("M15 7a4 4 0 100 8 4 4 0 000-8z M11 11l-8 8 M7 15l2 2 M9 13l2 2")),
+        new("Role-based access",
+            "Admin, Analyst, Viewer — enforced on every endpoint, deny-by-default, Entra-ready for SSO.",
+            Ico("M16 18a4 4 0 00-8 0 M12 10a3 3 0 100-6 3 3 0 000 6z M5 21a7 7 0 0114 0")),
+        new("Eats its own dog food",
+            "The pipeline scans this app — dependencies, code, secrets, container, and IaC — on every build.",
+            Ico("M4 7h16 M4 12h16 M4 17h10 M19 15l2 2-2 2")),
+    ];
+
+    private static string Ico(string d) =>
+        $"<svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"{d}\"/></svg>";
+
+    private static readonly IReadOnlyList<TrendPointDto> Trend = BuildTrend();
+    private static IReadOnlyList<TrendPointDto> BuildTrend()
+    {
+        int[] opened = { 14, 9, 17, 11, 8, 13, 6, 9 };
+        int[] resolved = { 6, 11, 9, 14, 12, 15, 13, 17 };
+        var start = new DateTimeOffset(2026, 4, 27, 0, 0, 0, TimeSpan.Zero);
+        var list = new List<TrendPointDto>();
+        for (int i = 0; i < opened.Length; i++)
+            list.Add(new TrendPointDto { WeekStart = start.AddDays(i * 7), Opened = opened[i], Resolved = resolved[i] });
+        return list;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -68,7 +222,9 @@
             if (auth.User.Identity?.IsAuthenticated == true)
             {
                 Nav.NavigateTo("dashboard", replace: true);
+                return;
             }
+            try { await JS.InvokeVoidAsync("ravelinReveal"); } catch { }
         }
     }
 }

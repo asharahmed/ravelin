@@ -54,6 +54,20 @@
                 }
                 requestAnimationFrame(frame);
             };
+            // Scroll-reveal: fade/slide elements in as they enter the viewport (once).
+            window.ravelinReveal = function () {
+                var els = document.querySelectorAll('.reveal:not(.in)');
+                if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) {
+                    els.forEach(function (e) { e.classList.add('in'); });
+                    return;
+                }
+                var io = new IntersectionObserver(function (entries) {
+                    entries.forEach(function (en) {
+                        if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+                    });
+                }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+                els.forEach(function (e) { io.observe(e); });
+            };
         })();
     </script>
     <link rel="preload" as="font" type="font/woff2" href="fonts/zilla-slab-600.woff2" crossorigin />
