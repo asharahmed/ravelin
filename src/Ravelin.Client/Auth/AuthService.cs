@@ -41,6 +41,41 @@ public sealed class AuthService(
         return null;
     }
 
+    /// <summary>Registers a new (read-only Viewer) account and signs in. Returns <c>null</c>
+    /// on success, or a user-facing error message.</summary>
+    public async Task<string?> RegisterAsync(RegisterRequest request)
+    {
+        HttpResponseMessage response;
+        try
+        {
+            response = await http.PostAsJsonAsync("api/auth/register", request);
+        }
+        catch (Exception ex)
+        {
+            return $"Could not reach the server: {ex.Message}";
+        }
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            var detail = (await response.Content.ReadAsStringAsync()).Trim().Trim('"');
+            return string.IsNullOrWhiteSpace(detail) ? "Could not create the account." : detail;
+        }
+        if (!response.IsSuccessStatusCode)
+        {
+            return $"Sign up failed ({(int)response.StatusCode}).";
+        }
+
+        var login = await response.Content.ReadFromJsonAsync<LoginResponse>();
+        if (login is null || string.IsNullOrWhiteSpace(login.Token))
+        {
+            return "Sign up failed: the server returned an empty response.";
+        }
+
+        await tokens.SetAsync(login.Token);
+        stateProvider.NotifyAuthChanged();
+        return null;
+    }
+
     public async Task LogoutAsync()
     {
         await tokens.ClearAsync();

@@ -56,6 +56,39 @@ public static class RavelinEndpoints
             });
         })
         .DisableAntiforgery();
+
+        // Self-service signup. New accounts are ALWAYS read-only Viewers — registration
+        // can never grant Analyst/Admin; those are assigned out-of-band by an administrator.
+        app.MapPost("/api/auth/register", async (
+            RegisterRequest request, UserManager<IdentityUser> users, JwtTokenService jwt) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+            {
+                return Results.BadRequest("Email and password are required.");
+            }
+
+            var user = new IdentityUser { UserName = request.Email, Email = request.Email };
+            var created = await users.CreateAsync(user, request.Password);
+            if (!created.Succeeded)
+            {
+                // Identity validates uniqueness + password policy; surface its messages.
+                return Results.BadRequest(string.Join(" ", created.Errors.Select(e => e.Description)));
+            }
+
+            await users.AddToRoleAsync(user, RavelinRoles.Viewer);
+
+            var roles = await users.GetRolesAsync(user);
+            var (token, expiresAt) = jwt.CreateToken(user.Id, user.Email!, roles);
+
+            return Results.Ok(new LoginResponse
+            {
+                Token = token,
+                ExpiresAt = expiresAt,
+                Email = user.Email!,
+                Roles = roles.ToList(),
+            });
+        })
+        .DisableAntiforgery();
     }
 
     // --- Ingestion (API-key auth; project comes from the key, never the route) ----------

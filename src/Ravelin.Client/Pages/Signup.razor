@@ -1,16 +1,19 @@
-@page "/login"
+@page "/signup"
 @layout PublicLayout
 @using System.ComponentModel.DataAnnotations
 @inject AuthService Auth
 @inject NavigationManager Nav
 
-<PageTitle>Sign in — Ravelin</PageTitle>
+<PageTitle>Create account — Ravelin</PageTitle>
 
 <div class="auth-wrap">
     <div class="auth-inner ledger-rise">
         <div class="ledger-eyebrow">Ravelin</div>
-        <h1 class="ledger-display auth-title">Sign in.</h1>
-        <p class="auth-sub">Security posture, open findings, and SLA compliance across every project.</p>
+        <h1 class="ledger-display auth-title">Create your account.</h1>
+        <p class="auth-sub">
+            New accounts get read-only access to dashboards and compliance reports. Analyst and
+            admin permissions are granted by an administrator.
+        </p>
 
         <EditForm Model="model" OnValidSubmit="SubmitAsync">
             <DataAnnotationsValidator />
@@ -33,24 +36,21 @@
             <div class="mb-3">
                 <label class="form-label" for="password">Password</label>
                 <InputText id="password" type="password" class="form-control"
-                           @bind-Value="model.Password" autocomplete="current-password" />
+                           @bind-Value="model.Password" autocomplete="new-password" />
                 <ValidationMessage For="() => model.Password" />
             </div>
 
             <button class="auth-submit" type="submit" disabled="@busy">
-                @(busy ? "Signing in…" : "Sign in")
+                @(busy ? "Creating account…" : "Create account")
             </button>
         </EditForm>
 
-        <p class="auth-alt">New to Ravelin? <a href="signup">Create an account</a></p>
+        <p class="auth-alt">Already have an account? <a href="login">Sign in</a></p>
     </div>
 </div>
 
 @code {
-    [SupplyParameterFromQuery(Name = "returnUrl")]
-    public string? ReturnUrl { get; set; }
-
-    private readonly LoginModel model = new();
+    private readonly RegisterModel model = new();
     private string? error;
     private bool busy;
 
@@ -59,7 +59,7 @@
         busy = true;
         error = null;
 
-        error = await Auth.LoginAsync(new LoginRequest
+        error = await Auth.RegisterAsync(new RegisterRequest
         {
             Email = model.Email,
             Password = model.Password,
@@ -69,16 +69,16 @@
 
         if (error is null)
         {
-            Nav.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "dashboard" : ReturnUrl);
+            Nav.NavigateTo("dashboard");
         }
     }
 
-    private sealed class LoginModel
+    private sealed class RegisterModel
     {
         [Required, EmailAddress]
         public string Email { get; set; } = string.Empty;
 
-        [Required]
+        [Required, MinLength(12, ErrorMessage = "Use at least 12 characters.")]
         public string Password { get; set; } = string.Empty;
     }
 }
