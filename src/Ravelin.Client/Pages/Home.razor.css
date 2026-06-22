@@ -664,3 +664,15 @@
     .cmp-col { font-size: 0.78rem; }
     .cmp-col small { display: none; }
 }
+
+/* ───────────────────────── Built with ───────────────────────── */
+.builtwith { text-align: center; }
+.builtwith-head { margin-bottom: clamp(1.6rem, 4vw, 2.4rem); }
+.builtwith-sub {
+    font-family: var(--font-text);
+    color: var(--ink-soft);
+    margin: 0.5rem auto 0;
+    max-width: 50ch;
+    font-size: clamp(0.95rem, 1.4vw, 1.1rem);
+    line-height: 1.5;
+}
