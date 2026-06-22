@@ -91,6 +91,15 @@
             function revealAllHidden() {
                 document.querySelectorAll('.reveal:not(.in)').forEach(revealNow);
             }
+            // Failsafe sweep: reveal only stragglers already in (or near) the viewport — so a
+            // missed observer callback never leaves visible content blank, WITHOUT prematurely
+            // revealing below-the-fold content (which stays for the scroll observer).
+            function revealInView() {
+                var vh = window.innerHeight || 800;
+                document.querySelectorAll('.reveal:not(.in)').forEach(function (el) {
+                    if (el.getBoundingClientRect().top < vh * 0.95) revealNow(el);
+                });
+            }
             // Number the .reveal children of [data-reveal-stagger] containers for CSS stagger.
             function indexStagger(scope) {
                 var root = (scope && scope.querySelectorAll) ? scope : document;
@@ -135,7 +144,7 @@
                     _revealMO.observe(document.body, { childList: true, subtree: true });
                 }
                 indexStagger(document); registerReveals(document);
-                setTimeout(revealAllHidden, 1200); // failsafe: never leave content invisible
+                setTimeout(revealInView, 1200); // failsafe: only reveal in-view stragglers
             };
             // Auto-init when the DOM is ready (often before Blazor's first render).
             if (document.readyState === 'loading') {
