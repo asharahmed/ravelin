@@ -135,6 +135,45 @@
         </div>
     </section>
 
+    @* ───────── Where it fits (comparison) ───────── *@
+    <section class="fits reveal">
+        <header class="sec-head">
+            <span class="ledger-eyebrow">Where it fits</span>
+            <h2 class="ledger-display sec-title">More than a scanner. Lighter than a GRC suite.</h2>
+            <p class="sec-lead">
+                Scanners find the problems; GRC platforms automate the entire audit. Ravelin owns
+                the slice in between — turning the scans you already run into enforced SLAs and
+                evidence, without the platform, the price, or the lock-in.
+            </p>
+        </header>
+
+        <div class="cmp">
+            <div class="cmp-row cmp-head">
+                <span class="cmp-cap"></span>
+                <span class="cmp-col">Scanners<small>Dependabot · Snyk · Trivy</small></span>
+                <span class="cmp-col">GRC suites<small>Vanta · Drata</small></span>
+                <span class="cmp-col cmp-col--us">Ravelin</span>
+            </div>
+            @foreach (var r in Compare)
+            {
+                var s = MarkOf(r.Scanners);
+                var g = MarkOf(r.Grc);
+                var u = MarkOf(r.Us);
+                <div class="cmp-row">
+                    <span class="cmp-cap">@r.Cap</span>
+                    <span class="cmp-cell @s.Cls"><span class="cmp-sym" aria-hidden="true">@s.Sym</span><span class="cmp-sr">@s.Label</span></span>
+                    <span class="cmp-cell @g.Cls"><span class="cmp-sym" aria-hidden="true">@g.Sym</span><span class="cmp-sr">@g.Label</span></span>
+                    <span class="cmp-cell cmp-cell--us @u.Cls"><span class="cmp-sym" aria-hidden="true">@u.Sym</span><span class="cmp-sr">@u.Label</span></span>
+                </div>
+            }
+        </div>
+        <p class="cmp-note">
+            ✓ yes&nbsp;·&nbsp;◗ limited&nbsp;·&nbsp;— no. &nbsp;Ravelin isn't a GRC platform by
+            design: if you need continuous evidence across every control, use one — and let Ravelin
+            own the vulnerability slice.
+        </p>
+    </section>
+
     @* ───────── Compliance mapping ───────── *@
     <section class="comply reveal">
         <header class="sec-head">
@@ -225,6 +264,25 @@
             "Give known-exploited vulnerabilities the shortest path to a fix.",
             "Critical findings carry the tightest window — seven days by default."),
     ];
+
+    private record Cmp(string Cap, string Scanners, string Grc, string Us);
+    private static readonly Cmp[] Compare =
+    [
+        new("Vendor-neutral across scanners", "no", "partial", "yes"),
+        new("Severity-based remediation SLAs + breach tracking", "partial", "partial", "yes"),
+        new("Security-posture trend over time", "partial", "partial", "yes"),
+        new("Audit-ready remediation evidence", "no", "yes", "yes"),
+        new("Full GRC (policies, access reviews, vendor risk)", "no", "yes", "no"),
+        new("Self-hostable & open source", "partial", "no", "yes"),
+        new("Lightweight, no per-seat pricing", "yes", "no", "yes"),
+    ];
+
+    private static (string Cls, string Sym, string Label) MarkOf(string v) => v switch
+    {
+        "yes" => ("cmp-yes", "✓", "yes"),
+        "partial" => ("cmp-partial", "◗", "limited"),
+        _ => ("cmp-no", "—", "no"),
+    };
 
     private record Feature(string Title, string Body, string Icon);
     private static readonly Feature[] Features =

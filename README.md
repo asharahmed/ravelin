@@ -1,9 +1,9 @@
 # Ravelin
 
-Vendor-neutral vulnerability **SLA & compliance tracker**. Ravelin takes the dependency-scan
-results your CI already produces and holds each finding to a remediation deadline based on its
-severity — then shows what's overdue, how your posture is trending, and produces evidence you
-can hand an auditor.
+Ravelin tracks remediation SLAs for the dependency vulnerabilities your scanners already find.
+CI pushes scan results to its API; Ravelin gives each finding a deadline based on severity,
+flags the ones that miss it, tracks the trend over time, and exports an audit report. It's
+vendor-neutral, API-first, and self-hosted.
 
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![Blazor WebAssembly](https://img.shields.io/badge/Blazor-WASM-512BD4?logo=blazor&logoColor=white)](https://learn.microsoft.com/aspnet/core/blazor/)
@@ -11,44 +11,58 @@ can hand an auditor.
 [![IaC: Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC?logo=terraform&logoColor=white)](./infra)
 [![License: MIT](https://img.shields.io/badge/License-MIT-success)](./LICENSE)
 
-> A *ravelin* is a triangular outwork built in front of a fortress wall — a detached first
-> line of defence. The product is named for it, and the logo is its salient.
+> A *ravelin* is a triangular outwork built in front of a fortress wall. The logo is its salient.
 
-**[Live demo →](https://ca-ravelin-dev.thankfulsea-7af22cac.canadacentral.azurecontainerapps.io)**
-(hosted on scale-to-zero infrastructure, so the first request after an idle period takes a few
-seconds to wake).
+**Live demo:** <https://ca-ravelin-dev.thankfulsea-7af22cac.canadacentral.azurecontainerapps.io>
+— runs on scale-to-zero infrastructure, so the first request after an idle period takes a few
+seconds to wake.
 
 ![Ravelin](./docs/screenshot.png)
 
 ---
 
-## The problem
+## What it does
 
-Every category of finding already has good scanners — Dependabot, Snyk and Trivy for
-dependencies; SonarQube and CodeQL for code; GitGuardian for secrets. They are excellent at
-*surfacing* problems and poor at *holding teams accountable* for fixing them. The questions an
-auditor or a security lead actually asks are different:
+Scanners like Dependabot, Snyk, and Trivy report vulnerabilities. They don't track whether those
+vulnerabilities get fixed on time, or give you one view across all of them. Ravelin is that layer:
 
-- Are we meeting our own remediation SLAs?
-- Is our security posture getting better or worse?
-- Can I produce a clean, point-in-time report on demand?
+- Ingests findings from any scanner through a single API.
+- Assigns each finding a remediation deadline based on its severity, and marks it breached once
+  the deadline passes.
+- Reports compliance percentage, breaches by project and severity, and an opened-vs-resolved trend.
+- Requires a written justification to mark a finding a false positive or accepted risk, and keeps
+  it on the record.
 
-Ravelin is the layer that answers those. It doesn't replace your scanners; it consumes their
-output and adds severity-based SLAs, posture trends, and audit-ready reporting on top.
+It does not scan code itself, and it is not a GRC platform.
+
+## How it compares
+
+| | Scanners (Dependabot, Snyk, Trivy) | GRC suites (Vanta, Drata) | Ravelin |
+|---|:---:|:---:|:---:|
+| Vendor-neutral across scanners | — | partial | yes |
+| Severity-based remediation SLAs + breach tracking | partial | partial | yes |
+| Security-posture trend over time | partial | partial | yes |
+| Audit-ready remediation evidence | — | yes | yes |
+| Full GRC (policies, access reviews, vendor risk) | — | yes | — |
+| Self-hostable & open source | varies | — | yes |
+| Lightweight, no per-seat pricing | yes | — | yes |
+
+Scanners report findings but don't enforce remediation timelines across tools. GRC suites
+automate audits company-wide, but they're broad, SaaS-only, and priced for it — vulnerability
+SLAs are a small part of a large platform. Ravelin does only the vulnerability-SLA layer:
+vendor-neutral, self-hosted, and free. If you need continuous evidence across every control, use
+a GRC suite and let Ravelin own the vulnerability slice.
 
 ## How it works
 
-1. **Ingest.** A pipeline step POSTs scan results to an authenticated endpoint using a scoped,
-   hashed API key. Ravelin normalises them, deduplicates against prior scans by a stable
-   identity, and auto-resolves anything that's no longer present.
-2. **Clock.** Each finding inherits a remediation deadline from its severity (Critical 7d,
-   High 30d, Medium 90d, Low 180d by default). The clock starts when the finding is first seen;
-   it is *breached* once it passes its deadline.
-3. **Account.** Dashboards show compliance %, breaches by project and severity, and an
-   opened-vs-resolved trend. Analysts triage findings — marking a false positive or accepted
-   risk requires a written justification, which stays on the record.
+1. A pipeline step POSTs scan results to `/api/ingest` with a scoped, hashed API key. Ravelin
+   deduplicates against previous scans and auto-resolves findings that are no longer present.
+2. Each finding takes a deadline from its severity — Critical 7d, High 30d, Medium 90d, Low 180d
+   by default — measured from when it was first seen. It's breached once it passes the deadline.
+3. Dashboards show compliance, breaches, and the trend. Analysts triage findings; suppressing one
+   requires a justification.
 
-A scan push is a single request:
+A scan push is one request:
 
 ```bash
 curl -X POST https://<host>/api/ingest \
@@ -72,20 +86,13 @@ curl -X POST https://<host>/api/ingest \
 # -> { "scanId": "...", "created": 1, "reopened": 0, "resolved": 0, "seen": 0, "openTotal": 1 }
 ```
 
-## Features
+## Authentication
 
-- **Severity-based SLAs** with breach detection computed on read, so deadlines stay correct as
-  time passes. Editing a policy re-baselines open findings.
-- **Smart reconciliation** — dedup, auto-resolve, and reopen across scans, with triage
-  decisions respected.
-- **Dashboards** — compliance gauge, open-by-severity, per-project posture, and an 8-week
-  opened-vs-resolved trend (no chart libraries; plain SVG).
-- **Auditable triage** — false-positive and accepted-risk states require a justification.
-- **Two authentication models** — JWT + RBAC (Admin / Analyst / Viewer) for people, scoped and
-  hashed API keys for pipelines.
-- **API-first** — every capability is a documented HTTP endpoint; the Blazor UI is just one
-  client.
-- **CSV export** of findings for offline analysis.
+- **People** — ASP.NET Core Identity with JWTs and three roles: Admin, Analyst, Viewer, enforced
+  per endpoint. Self-service signup creates a read-only Viewer; Analyst and Admin are assigned by
+  an Admin.
+- **Pipelines** — scoped API keys, stored hashed (SHA-256, 256-bit). A key is bound to one
+  project, and the scope of an ingested scan comes from the key, not the request route.
 
 ## Architecture
 
@@ -101,7 +108,7 @@ curl -X POST https://<host>/api/ingest \
 | CI/CD | Azure Pipelines |
 | IaC | Terraform (remote state in Azure Storage) |
 
-The solution is split so the domain has no infrastructure dependencies:
+The solution keeps the domain free of infrastructure dependencies:
 
 ```
 src/
@@ -117,7 +124,7 @@ infra/terraform/          Azure infrastructure
 
 ## Running locally
 
-You need the [.NET 10 SDK](https://dotnet.microsoft.com/download), Docker (for SQL Server), and
+Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download), Docker (for SQL Server), and
 the EF Core tools (`dotnet tool install --global dotnet-ef`).
 
 ```bash
@@ -143,30 +150,27 @@ export Seed__DemoData="true"   # seeds demo projects + findings
 dotnet run --project src/Ravelin/Ravelin.csproj
 ```
 
-Then sign in with the seeded admin account. Build and test the whole solution with:
+Sign in with the seeded admin account. Build and test the solution with:
 
 ```bash
 dotnet build Ravelin.slnx
 dotnet test  Ravelin.slnx
 ```
 
-Infrastructure and deployment are documented in [`infra/README.md`](./infra/README.md).
+Infrastructure and deployment are in [`infra/README.md`](./infra/README.md).
 
 ## Security
 
-This is a security tool, so it is built to model good practice and to scan itself:
+Ravelin is a security tool, so it's built to model good practice and to scan itself:
 
 - Scan payloads are treated as untrusted and validated at the API boundary.
-- API keys are stored hashed (SHA-256, 256-bit keys); RBAC is enforced per endpoint,
-  deny-by-default.
-- The scope of an ingested scan comes from the API key, never from the request route.
-- Secrets are delivered as Container App secrets (Azure Key Vault is on the roadmap), and are
-  never logged.
+- API keys are hashed; RBAC is enforced per endpoint, deny-by-default.
+- Secrets are delivered as Container App secrets (Key Vault is on the roadmap) and never logged.
 - The CI pipeline scans Ravelin's own dependencies, code, container image, and IaC.
 
-## Status & roadmap
+## Status
 
-Live and deployed through dashboards. Built in reviewable stages:
+Live through Stage 6 (dashboards). Built in reviewable stages:
 
 | Stage | Scope | State |
 |-------|-------|-------|
@@ -174,15 +178,15 @@ Live and deployed through dashboards. Built in reviewable stages:
 | 1 | Terraform infra, Azure Container Apps, CI/CD pipeline | Done |
 | 2 | Domain model, EF Core, Azure SQL | Done |
 | 3 | Ingestion API, hashed keys, dedup + auto-resolve | Done |
-| 4 | Identity + JWT + RBAC, Blazor login | Done |
+| 4 | Identity + JWT + RBAC, login, self-service signup | Done |
 | 5 | SLA engine + triage | Done |
 | 6 | Dashboards | Done |
 | 7 | Point-in-time compliance report export | Planned |
 | 8 | DevSecOps hardening — pipeline scanners, Key Vault, managed-identity DB auth | Planned |
 
-Design rationale and the full decision log are in [`PROJECT_VISION.md`](./PROJECT_VISION.md);
-the design system is documented in [`DESIGN.md`](./DESIGN.md) and rendered live at `/styleguide`.
+Design rationale and the full decision log are in [`PROJECT_VISION.md`](./PROJECT_VISION.md). The
+design system is documented in [`DESIGN.md`](./DESIGN.md) and rendered live at `/styleguide`.
 
 ## License
 
-[MIT](./LICENSE).
+[MIT](./LICENSE)
