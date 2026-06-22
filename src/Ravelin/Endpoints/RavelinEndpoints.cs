@@ -204,6 +204,95 @@ public static class RavelinEndpoints
                 Prefix = entity.KeyPrefix,
             });
         });
+
+        // List a project's API keys (no secrets — prefix + lifecycle only).
+        admin.MapGet("/projects/{key}/api-keys", async (string key, RavelinDbContext db) =>
+        {
+            var project = await db.Projects.FirstOrDefaultAsync(p => p.Key == key);
+            if (project is null)
+            {
+                return Results.NotFound($"Project '{key}' not found.");
+            }
+
+            var keys = await db.ApiKeys
+                .Where(k => k.ProjectId == project.Id)
+                .OrderByDescending(k => k.RevokedAt == null)
+                .ThenByDescending(k => k.CreatedAt)
+                .Select(k => new ApiKeyDto
+                {
+                    Id = k.Id,
+                    Name = k.Name,
+                    Prefix = k.KeyPrefix,
+                    CreatedAt = k.CreatedAt,
+                    LastUsedAt = k.LastUsedAt,
+                    RevokedAt = k.RevokedAt,
+                    IsActive = k.RevokedAt == null,
+                })
+                .ToListAsync();
+
+            return Results.Ok(keys);
+        });
+
+        // Revoke an API key (idempotent).
+        admin.MapDelete("/projects/{key}/api-keys/{id:guid}", async (
+            string key, Guid id, RavelinDbContext db, ApiKeyService apiKeys) =>
+        {
+            var project = await db.Projects.FirstOrDefaultAsync(p => p.Key == key);
+            if (project is null)
+            {
+                return Results.NotFound($"Project '{key}' not found.");
+            }
+
+            var revoked = await apiKeys.RevokeAsync(project.Id, id);
+            return revoked ? Results.NoContent() : Results.NotFound($"Key '{id}' not found.");
+        });
+
+        // List human users with their role.
+        admin.MapGet("/users", async (UserManager<IdentityUser> users) =>
+        {
+            var accounts = await users.Users.OrderBy(u => u.Email).ToListAsync();
+            var dtos = new List<UserDto>(accounts.Count);
+            foreach (var u in accounts)
+            {
+                var roles = await users.GetRolesAsync(u);
+                dtos.Add(new UserDto { Id = u.Id, Email = u.Email ?? "", Role = roles.FirstOrDefault() ?? "—" });
+            }
+            return Results.Ok(dtos);
+        });
+
+        // Change a user's role. Guards against removing the last administrator.
+        admin.MapPut("/users/{id}/role", async (
+            string id, SetUserRoleRequest req, UserManager<IdentityUser> users) =>
+        {
+            if (!RavelinRoles.All.Contains(req.Role))
+            {
+                return Results.BadRequest($"Unknown role '{req.Role}'.");
+            }
+
+            var user = await users.FindByIdAsync(id);
+            if (user is null)
+            {
+                return Results.NotFound("User not found.");
+            }
+
+            var current = await users.GetRolesAsync(user);
+            if (current.Contains(RavelinRoles.Admin) && req.Role != RavelinRoles.Admin)
+            {
+                var admins = await users.GetUsersInRoleAsync(RavelinRoles.Admin);
+                if (admins.Count <= 1)
+                {
+                    return Results.BadRequest("Cannot remove the last administrator.");
+                }
+            }
+
+            if (current.Count > 0)
+            {
+                await users.RemoveFromRolesAsync(user, current);
+            }
+            await users.AddToRoleAsync(user, req.Role);
+
+            return Results.Ok(new UserDto { Id = user.Id, Email = user.Email ?? "", Role = req.Role });
+        });
     }
 
     // --- Reads (any authenticated user: Viewer / Analyst / Admin) -----------------------

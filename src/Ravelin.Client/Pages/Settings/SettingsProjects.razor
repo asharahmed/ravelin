@@ -1,0 +1,248 @@
+@page "/settings/projects"
+@attribute [Authorize(Roles = RavelinRoles.Admin)]
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject ToastService Toast
+
+<PageTitle>Projects &amp; keys — Ravelin</PageTitle>
+
+<SettingsShell Title="Projects &amp; API keys"
+               Subtitle="Create the projects your pipelines push scans to, and issue scoped, hashed API keys. A key's secret is shown once, at creation — store it immediately.">
+
+    <div class="s-actions" style="margin-bottom:1.2rem">
+        <button class="s-btn" @onclick="() => showNew = !showNew">@(showNew ? "Cancel" : "New project")</button>
+    </div>
+
+    @if (showNew)
+    {
+        <div class="s-card">
+            <h2 class="s-card-title">New project</h2>
+            @if (projectError is not null) { <div class="s-error">@projectError</div> }
+            <div class="s-field-row" style="margin-top:0.8rem">
+                <div class="s-field"><label>Key</label><input @bind="npKey" placeholder="payments-api" /></div>
+                <div class="s-field"><label>Name</label><input @bind="npName" placeholder="Payments API" /></div>
+            </div>
+            <div class="s-field"><label>Repository URL (optional)</label><input @bind="npRepo" placeholder="https://github.com/acme/payments-api" /></div>
+            <div class="s-actions">
+                <button class="s-btn" disabled="@creatingProject" @onclick="CreateProjectAsync">@(creatingProject ? "Creating…" : "Create project")</button>
+            </div>
+        </div>
+    }
+
+    @if (loading)
+    {
+        <div class="s-card"><span class="skeleton" style="display:block;height:1.4rem;width:55%"></span></div>
+    }
+    else if (loadError is not null)
+    {
+        <div class="s-error">@loadError</div>
+    }
+    else if (projects!.Count == 0)
+    {
+        <div class="s-empty">
+            <h3>No projects yet</h3>
+            <p>A project groups the findings a pipeline pushes. Create one, issue an API key, and point your CI at it.</p>
+            <button class="s-btn" @onclick="() => showNew = true">New project</button>
+        </div>
+    }
+    else
+    {
+        @foreach (var p in projects!)
+        {
+            <div class="s-card">
+                <div class="s-card-head">
+                    <div>
+                        <h2 class="s-card-title">@p.Name</h2>
+                        <p class="s-card-sub">
+                            <span class="s-mono">@p.Key</span> · @p.OpenFindings open finding@(p.OpenFindings == 1 ? "" : "s")@(string.IsNullOrEmpty(p.RepositoryUrl) ? "" : $" · {p.RepositoryUrl}")
+                        </p>
+                    </div>
+                    <button class="s-btn s-btn--ghost s-btn--sm" @onclick="() => ToggleKeysAsync(p.Key)">@(expanded == p.Key ? "Hide keys" : "Manage keys")</button>
+                </div>
+
+                @if (expanded == p.Key)
+                {
+                    <div style="margin-top:1.1rem">
+                        @if (keysLoading)
+                        {
+                            <span class="skeleton" style="display:block;height:1.2rem;width:45%"></span>
+                        }
+                        else
+                        {
+                            @if (keys.Count == 0)
+                            {
+                                <p class="s-card-sub">No API keys yet. Generate one below.</p>
+                            }
+                            else
+                            {
+                                <table class="s-table">
+                                    <thead><tr><th>Name</th><th>Key</th><th>Created</th><th>Last used</th><th>Status</th><th></th></tr></thead>
+                                    <tbody>
+                                        @foreach (var k in keys)
+                                        {
+                                            <tr>
+                                                <td>@k.Name</td>
+                                                <td class="s-mono s-muted">@(k.Prefix)…</td>
+                                                <td class="s-muted">@k.CreatedAt.ToLocalTime().ToString("MMM d, yyyy")</td>
+                                                <td class="s-muted">@(k.LastUsedAt is null ? "never" : k.LastUsedAt.Value.ToLocalTime().ToString("MMM d, yyyy"))</td>
+                                                <td>
+                                                    @if (k.IsActive) { <span class="s-pill s-pill--active">Active</span> }
+                                                    else { <span class="s-pill s-pill--revoked">Revoked</span> }
+                                                </td>
+                                                <td>@if (k.IsActive) { <button class="s-btn s-btn--danger s-btn--sm" @onclick="() => RevokeAsync(p.Key, k.Id)">Revoke</button> }</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+
+                            <div class="s-inline" style="margin-top:1.1rem">
+                                <div class="s-field"><label>New key name</label><input @bind="nkName" placeholder="GitHub Actions" /></div>
+                                <button class="s-btn" disabled="@creatingKey" @onclick="() => CreateKeyAsync(p.Key)">@(creatingKey ? "Generating…" : "Generate key")</button>
+                            </div>
+                            @if (keyError is not null) { <div class="s-error">@keyError</div> }
+
+                            @if (revealed is not null)
+                            {
+                                <div class="s-reveal">
+                                    <div class="s-reveal-label">New API key — copy it now, it won't be shown again</div>
+                                    <div class="s-reveal-key">
+                                        <code>@revealed.Key</code>
+                                        <button class="s-btn s-btn--sm" @onclick="() => CopyAsync(revealed!.Key)">@copyLabel</button>
+                                    </div>
+                                    <p class="s-reveal-note">Wire it into your pipeline (the project is derived from the key):</p>
+                                    <PipelineSnippet ApiKey="@revealed.Key" />
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+            </div>
+        }
+    }
+</SettingsShell>
+
+@code {
+    private List<ProjectDto>? projects;
+    private bool loading = true;
+    private string? loadError;
+
+    private bool showNew;
+    private string npKey = "", npName = "", npRepo = "";
+    private bool creatingProject;
+    private string? projectError;
+
+    private string? expanded;
+    private bool keysLoading;
+    private List<ApiKeyDto> keys = new();
+
+    private string nkName = "";
+    private bool creatingKey;
+    private string? keyError;
+    private CreateApiKeyResponse? revealed;
+    private string copyLabel = "Copy";
+
+    protected override Task OnInitializedAsync() => LoadProjectsAsync();
+
+    private async Task LoadProjectsAsync()
+    {
+        loading = true; loadError = null;
+        try { projects = await Http.GetFromJsonAsync<List<ProjectDto>>("api/projects") ?? new(); }
+        catch (Exception ex) { loadError = $"Could not load projects: {ex.Message}"; }
+        finally { loading = false; }
+    }
+
+    private async Task CreateProjectAsync()
+    {
+        projectError = null;
+        if (string.IsNullOrWhiteSpace(npKey) || string.IsNullOrWhiteSpace(npName))
+        {
+            projectError = "Key and name are required."; return;
+        }
+        creatingProject = true;
+        try
+        {
+            var resp = await Http.PostAsJsonAsync("api/admin/projects", new CreateProjectRequest
+            {
+                Key = npKey.Trim(), Name = npName.Trim(),
+                RepositoryUrl = string.IsNullOrWhiteSpace(npRepo) ? null : npRepo.Trim(),
+            });
+            if (resp.IsSuccessStatusCode)
+            {
+                Toast.Success($"Project '{npName.Trim()}' created.");
+                npKey = npName = npRepo = ""; showNew = false;
+                await LoadProjectsAsync();
+            }
+            else
+            {
+                projectError = (await resp.Content.ReadAsStringAsync()).Trim().Trim('"');
+                if (string.IsNullOrWhiteSpace(projectError)) projectError = $"Failed ({(int)resp.StatusCode}).";
+            }
+        }
+        catch (Exception ex) { projectError = ex.Message; }
+        finally { creatingProject = false; }
+    }
+
+    private async Task ToggleKeysAsync(string key)
+    {
+        revealed = null; keyError = null; nkName = "";
+        if (expanded == key) { expanded = null; return; }
+        expanded = key;
+        await LoadKeysAsync(key);
+    }
+
+    private async Task LoadKeysAsync(string key)
+    {
+        keysLoading = true; keys = new();
+        try { keys = await Http.GetFromJsonAsync<List<ApiKeyDto>>($"api/admin/projects/{key}/api-keys") ?? new(); }
+        catch (Exception ex) { keyError = $"Could not load keys: {ex.Message}"; }
+        finally { keysLoading = false; }
+    }
+
+    private async Task CreateKeyAsync(string key)
+    {
+        keyError = null;
+        if (string.IsNullOrWhiteSpace(nkName)) { keyError = "Give the key a name."; return; }
+        creatingKey = true;
+        try
+        {
+            var resp = await Http.PostAsJsonAsync($"api/admin/projects/{key}/api-keys",
+                new CreateApiKeyRequest { Name = nkName.Trim() });
+            if (resp.IsSuccessStatusCode)
+            {
+                revealed = await resp.Content.ReadFromJsonAsync<CreateApiKeyResponse>();
+                nkName = "";
+                await LoadKeysAsync(key);
+                Toast.Success("API key generated.");
+            }
+            else
+            {
+                keyError = (await resp.Content.ReadAsStringAsync()).Trim().Trim('"');
+                if (string.IsNullOrWhiteSpace(keyError)) keyError = $"Failed ({(int)resp.StatusCode}).";
+            }
+        }
+        catch (Exception ex) { keyError = ex.Message; }
+        finally { creatingKey = false; }
+    }
+
+    private async Task RevokeAsync(string key, Guid id)
+    {
+        var ok = await JS.InvokeAsync<bool>("confirm",
+            "Revoke this key? Any pipeline still using it will stop being able to push.");
+        if (!ok) return;
+        try
+        {
+            var resp = await Http.DeleteAsync($"api/admin/projects/{key}/api-keys/{id}");
+            if (resp.IsSuccessStatusCode) { Toast.Success("Key revoked."); await LoadKeysAsync(key); }
+            else Toast.Error($"Could not revoke key ({(int)resp.StatusCode}).");
+        }
+        catch (Exception ex) { Toast.Error(ex.Message); }
+    }
+
+    private async Task CopyAsync(string text)
+    {
+        await JS.InvokeVoidAsync("ravelinCopy", text);
+        copyLabel = "Copied"; StateHasChanged();
+        await Task.Delay(1400); copyLabel = "Copy";
+    }
+}

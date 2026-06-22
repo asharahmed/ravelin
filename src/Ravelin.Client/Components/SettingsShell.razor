@@ -1,0 +1,27 @@
+@* Common chrome for the admin settings pages: header, tabs, and content slot. *@
+<div class="settings ledger-rise">
+    <header class="settings-head">
+        <div class="ledger-eyebrow">Administration</div>
+        <h1 class="ledger-display settings-title">@Title</h1>
+        @if (!string.IsNullOrEmpty(Subtitle))
+        {
+            <p class="settings-sub">@Subtitle</p>
+        }
+    </header>
+
+    <nav class="settings-nav">
+        <NavLink class="settings-tab" href="settings/projects">Projects &amp; keys</NavLink>
+        <NavLink class="settings-tab" href="settings/sla">SLA policy</NavLink>
+        <NavLink class="settings-tab" href="settings/team">Team</NavLink>
+    </nav>
+
+    <div class="settings-body">
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "Settings";
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

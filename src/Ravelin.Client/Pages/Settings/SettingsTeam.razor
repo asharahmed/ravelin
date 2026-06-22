@@ -1,0 +1,98 @@
+@page "/settings/team"
+@attribute [Authorize(Roles = RavelinRoles.Admin)]
+@inject HttpClient Http
+@inject ToastService Toast
+@inject AuthenticationStateProvider AuthState
+
+<PageTitle>Team — Ravelin</PageTitle>
+
+<SettingsShell Title="Team"
+               Subtitle="Everyone with an account and their role. New sign-ups arrive as read-only Viewers; promote them to Analyst (can triage findings) or Admin (full control) here.">
+
+    @if (loading)
+    {
+        <div class="s-card"><span class="skeleton" style="display:block;height:1.4rem;width:55%"></span></div>
+    }
+    else if (loadError is not null)
+    {
+        <div class="s-error">@loadError</div>
+    }
+    else
+    {
+        <div class="s-card">
+            <table class="s-table">
+                <thead><tr><th>User</th><th style="width:11rem">Role</th></tr></thead>
+                <tbody>
+                    @foreach (var u in users)
+                    {
+                        <tr>
+                            <td>
+                                @u.Email
+                                @if (string.Equals(u.Email, me, StringComparison.OrdinalIgnoreCase)) { <span class="s-you">you</span> }
+                            </td>
+                            <td>
+                                <select value="@u.Role" @onchange="e => SetRoleAsync(u, e.Value?.ToString())" disabled="@(busyId == u.Id)">
+                                    @foreach (var r in Roles)
+                                    {
+                                        <option value="@r" selected="@(u.Role == r)">@r</option>
+                                    }
+                                </select>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <p class="s-card-meta" style="margin-top:0.6rem">
+            Admin — manage projects, keys, SLA policy, and team. Analyst — triage findings. Viewer — read-only.
+        </p>
+    }
+</SettingsShell>
+
+@code {
+    private static readonly string[] Roles = [RavelinRoles.Admin, RavelinRoles.Analyst, RavelinRoles.Viewer];
+
+    private List<UserDto> users = new();
+    private bool loading = true;
+    private string? loadError;
+    private string? me;
+    private string? busyId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        me = auth.User.Identity?.Name;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true; loadError = null;
+        try { users = await Http.GetFromJsonAsync<List<UserDto>>("api/admin/users") ?? new(); }
+        catch (Exception ex) { loadError = $"Could not load the team: {ex.Message}"; }
+        finally { loading = false; }
+    }
+
+    private async Task SetRoleAsync(UserDto user, string? role)
+    {
+        if (string.IsNullOrEmpty(role) || role == user.Role) return;
+        busyId = user.Id;
+        try
+        {
+            var resp = await Http.PutAsJsonAsync($"api/admin/users/{user.Id}/role", new SetUserRoleRequest { Role = role });
+            if (resp.IsSuccessStatusCode)
+            {
+                Toast.Success($"{user.Email} is now {role}.");
+                await LoadAsync();
+            }
+            else
+            {
+                var msg = (await resp.Content.ReadAsStringAsync()).Trim().Trim('"');
+                Toast.Error(string.IsNullOrWhiteSpace(msg) ? $"Could not change role ({(int)resp.StatusCode})." : msg);
+                await LoadAsync(); // revert the dropdown to the server's truth
+            }
+        }
+        catch (Exception ex) { Toast.Error(ex.Message); await LoadAsync(); }
+        finally { busyId = null; }
+    }
+}

@@ -25,3 +25,29 @@ public record CreateApiKeyResponse
     public required string Key { get; init; }
     public required string Prefix { get; init; }
 }
+
+/// <summary>An API key in a listing — never includes the secret, only its prefix and lifecycle.</summary>
+public record ApiKeyDto
+{
+    public required Guid Id { get; init; }
+    public required string Name { get; init; }
+    public required string Prefix { get; init; }
+    public required DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset? LastUsedAt { get; init; }
+    public DateTimeOffset? RevokedAt { get; init; }
+    public required bool IsActive { get; init; }
+}
+
+/// <summary>A human user account and its single role (Admin / Analyst / Viewer).</summary>
+public record UserDto
+{
+    public required string Id { get; init; }
+    public required string Email { get; init; }
+    public required string Role { get; init; }
+}
+
+/// <summary>Set a user's role (admin). Replaces any existing role.</summary>
+public record SetUserRoleRequest
+{
+    public required string Role { get; init; }
+}

@@ -37,6 +37,20 @@
                     setTimeout(function () { URL.revokeObjectURL(url); }, 0);
                 } catch (e) { console.error('download failed', e); }
             };
+            // Copy text to the clipboard (used for API keys + pipeline snippets).
+            window.ravelinCopy = function (text) {
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(text); return true;
+                    }
+                } catch (e) { }
+                try {
+                    var ta = document.createElement('textarea');
+                    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+                    document.body.appendChild(ta); ta.focus(); ta.select();
+                    document.execCommand('copy'); document.body.removeChild(ta); return true;
+                } catch (e) { return false; }
+            };
             // Animated count-up for dashboard metrics (honours reduced-motion).
             window.ravelinCountUp = function (el, target, duration, decimals) {
                 if (!el) return;
@@ -123,6 +137,7 @@
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["ledger.css"]" />
     <link rel="stylesheet" href="@Assets["auth.css"]" />
+    <link rel="stylesheet" href="@Assets["settings.css"]" />
     <link rel="stylesheet" href="@Assets["Ravelin.styles.css"]" />
     <ImportMap />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />

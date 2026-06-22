@@ -57,6 +57,25 @@ public class ApiKeyService(RavelinDbContext db)
         return key;
     }
 
+    /// <summary>Revokes an active key (sets <c>RevokedAt</c>). Idempotent. Returns false if the
+    /// key doesn't exist for the project.</summary>
+    public async Task<bool> RevokeAsync(Guid projectId, Guid keyId, CancellationToken ct = default)
+    {
+        var key = await db.ApiKeys.FirstOrDefaultAsync(
+            k => k.Id == keyId && k.ProjectId == projectId, ct);
+        if (key is null)
+        {
+            return false;
+        }
+
+        if (key.RevokedAt is null)
+        {
+            key.RevokedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(ct);
+        }
+        return true;
+    }
+
     public static string Hash(string rawKey) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 }

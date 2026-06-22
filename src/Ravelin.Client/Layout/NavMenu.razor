@@ -17,6 +17,13 @@
                 </div>
             </Authorized>
         </AuthorizeView>
+        <AuthorizeView Roles="@RavelinRoles.Admin">
+            <Authorized>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="settings/projects">Settings</NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
         <div class="nav-item">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Home</NavLink>
         </div>

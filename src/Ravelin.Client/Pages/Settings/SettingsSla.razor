@@ -1,0 +1,95 @@
+@page "/settings/sla"
+@attribute [Authorize(Roles = RavelinRoles.Admin)]
+@inject HttpClient Http
+@inject ToastService Toast
+
+<PageTitle>SLA policy — Ravelin</PageTitle>
+
+<SettingsShell Title="SLA policy"
+               Subtitle="The remediation window for each severity, in days. Saving re-baselines every open finding's deadline from the new windows; triaged and resolved findings are left alone.">
+
+    @if (loading)
+    {
+        <div class="s-card"><span class="skeleton" style="display:block;height:1.4rem;width:50%"></span></div>
+    }
+    else if (loadError is not null)
+    {
+        <div class="s-error">@loadError</div>
+    }
+    else
+    {
+        <div class="s-card">
+            <table class="s-table">
+                <thead><tr><th>Severity</th><th>Remediation window</th></tr></thead>
+                <tbody>
+                    @foreach (var row in rows)
+                    {
+                        <tr>
+                            <td><span class="chip sev-@row.Severity.ToLowerInvariant()">@row.Severity</span></td>
+                            <td>
+                                <span class="sla-edit">
+                                    <input type="number" min="1" max="3650" @bind="row.Days" />
+                                    <span class="s-muted">days</span>
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            @if (saveError is not null) { <div class="s-error">@saveError</div> }
+            <div class="s-actions" style="margin-top:1rem">
+                <button class="s-btn" disabled="@saving" @onclick="SaveAsync">@(saving ? "Saving…" : "Save policy")</button>
+                <span class="s-card-meta">Critical 7 · High 30 · Medium 90 · Low 180 by default</span>
+            </div>
+        </div>
+    }
+</SettingsShell>
+
+@code {
+    private sealed class Row { public string Severity { get; set; } = ""; public int Days { get; set; } }
+
+    private static readonly string[] Order = ["Critical", "High", "Medium", "Low"];
+    private List<Row> rows = new();
+    private bool loading = true;
+    private string? loadError;
+    private bool saving;
+    private string? saveError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        loading = true; loadError = null;
+        try
+        {
+            var policies = await Http.GetFromJsonAsync<List<SlaPolicyDto>>("api/sla-policies") ?? new();
+            rows = Order
+                .Select(sev => policies.FirstOrDefault(p => string.Equals(p.Severity, sev, StringComparison.OrdinalIgnoreCase)))
+                .Where(p => p is not null)
+                .Select(p => new Row { Severity = p!.Severity, Days = p.RemediationDays })
+                .ToList();
+        }
+        catch (Exception ex) { loadError = $"Could not load the SLA policy: {ex.Message}"; }
+        finally { loading = false; }
+    }
+
+    private async Task SaveAsync()
+    {
+        saveError = null;
+        if (rows.Any(r => r.Days < 1)) { saveError = "Every window must be at least 1 day."; return; }
+        saving = true;
+        try
+        {
+            var resp = await Http.PutAsJsonAsync("api/sla-policies", new UpdateSlaPoliciesRequest
+            {
+                Policies = rows.Select(r => new SlaPolicyDto { Severity = r.Severity, RemediationDays = r.Days }).ToList(),
+            });
+            if (resp.IsSuccessStatusCode) { Toast.Success("SLA policy saved. Open findings re-baselined."); }
+            else
+            {
+                saveError = (await resp.Content.ReadAsStringAsync()).Trim().Trim('"');
+                if (string.IsNullOrWhiteSpace(saveError)) saveError = $"Failed ({(int)resp.StatusCode}).";
+            }
+        }
+        catch (Exception ex) { saveError = ex.Message; }
+        finally { saving = false; }
+    }
+}
