@@ -40,10 +40,20 @@ public static class RavelinEndpoints
             }
 
             var user = await users.FindByEmailAsync(request.Email);
-            if (user is null || !await users.CheckPasswordAsync(user, request.Password))
+            // Same response whether the account is missing, locked, or the password is wrong —
+            // don't reveal which (avoids account enumeration).
+            if (user is null || await users.IsLockedOutAsync(user))
             {
-                return Results.Unauthorized(); // same response whether user exists or not
+                return Results.Unauthorized();
             }
+
+            if (!await users.CheckPasswordAsync(user, request.Password))
+            {
+                await users.AccessFailedAsync(user); // increments the count; locks at the threshold
+                return Results.Unauthorized();
+            }
+
+            await users.ResetAccessFailedCountAsync(user);
 
             var roles = await users.GetRolesAsync(user);
             var (token, expiresAt) = jwt.CreateToken(user.Id, user.Email!, roles);

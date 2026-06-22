@@ -55,6 +55,11 @@ builder.Services.AddIdentityCore<IdentityUser>(options =>
     {
         options.Password.RequiredLength = 12;
         options.User.RequireUniqueEmail = true;
+        // Lock an account after repeated failed logins (per-account brute-force defence,
+        // complementing the per-IP rate limit). Uses existing Identity columns — no migration.
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+        options.Lockout.AllowedForNewUsers = true;
     })
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<RavelinDbContext>();
