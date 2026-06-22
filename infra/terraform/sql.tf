@@ -1,7 +1,9 @@
 # Azure SQL — serverless, using the Azure SQL Database free offer (auto-pause to stay free).
-# NOTE (tech debt, hardened in Stage 8): the app currently authenticates to SQL with the
-# admin login over a connection string secret. Stage 8 switches to the Container App's
-# managed identity + a least-privilege DB user, and moves secrets into Key Vault.
+# NOTE (remaining tech debt): the app still authenticates to SQL with the admin login. The
+# connection string is now stored in Key Vault (see keyvault.tf) rather than inline, but the
+# stronger step — the Container App's managed identity + a least-privilege contained DB user
+# (no password at all) — is deferred: it needs a T-SQL user-provisioning step and risks
+# locking the app out of the database if mis-sequenced.
 
 resource "random_password" "sql" {
   length           = 24

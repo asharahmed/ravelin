@@ -23,6 +23,16 @@ output "app_url" {
   value       = "https://${azurerm_container_app.main.ingress[0].fqdn}"
 }
 
+output "key_vault_name" {
+  description = "Key Vault holding the app's secrets."
+  value       = azurerm_key_vault.main.name
+}
+
+output "key_vault_uri" {
+  description = "Key Vault data-plane URI."
+  value       = azurerm_key_vault.main.vault_uri
+}
+
 output "sql_server_fqdn" {
   description = "Azure SQL server FQDN."
   value       = azurerm_mssql_server.main.fully_qualified_domain_name

@@ -102,26 +102,32 @@ resource "azurerm_container_app" "main" {
     identity = azurerm_user_assigned_identity.app.id
   }
 
-  # DB connection string delivered to the app as a secret env var.
-  # (Stage 8 replaces this with managed-identity auth + Key Vault.)
+  # Secrets are sourced from Key Vault and fetched at runtime via the app's managed
+  # identity — no secret values are embedded in this Container App definition (or its
+  # Terraform state) any more. versionless_id lets rotated secret versions flow through
+  # on the Container App's periodic Key Vault sync. See keyvault.tf.
   secret {
-    name  = "db-connection"
-    value = local.sql_connection_string
+    name                = "db-connection"
+    key_vault_secret_id = azurerm_key_vault_secret.db_connection.versionless_id
+    identity            = azurerm_user_assigned_identity.app.id
   }
 
   secret {
-    name  = "jwt-signing-key"
-    value = random_password.jwt_signing.result
+    name                = "jwt-signing-key"
+    key_vault_secret_id = azurerm_key_vault_secret.jwt_signing_key.versionless_id
+    identity            = azurerm_user_assigned_identity.app.id
   }
 
   secret {
-    name  = "seed-admin-password"
-    value = random_password.admin.result
+    name                = "seed-admin-password"
+    key_vault_secret_id = azurerm_key_vault_secret.seed_admin_password.versionless_id
+    identity            = azurerm_user_assigned_identity.app.id
   }
 
   secret {
-    name  = "seed-demo-password"
-    value = random_password.demo.result
+    name                = "seed-demo-password"
+    key_vault_secret_id = azurerm_key_vault_secret.seed_demo_password.versionless_id
+    identity            = azurerm_user_assigned_identity.app.id
   }
 
   ingress {
@@ -205,5 +211,9 @@ resource "azurerm_container_app" "main" {
     ignore_changes = [template[0].container[0].image]
   }
 
-  depends_on = [azurerm_role_assignment.acr_pull]
+  depends_on = [
+    azurerm_role_assignment.acr_pull,
+    # The app identity must be able to read Key Vault secrets before this revision starts.
+    azurerm_role_assignment.app_kv_secrets_user,
+  ]
 }
