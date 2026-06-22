@@ -179,6 +179,12 @@ resource "azurerm_container_app" "main" {
         secret_name = "seed-demo-password"
       }
 
+      # Seed realistic demo data for the public showcase (idempotent; skips existing projects).
+      env {
+        name  = "Seed__DemoData"
+        value = "true"
+      }
+
       liveness_probe {
         transport = "HTTP"
         path      = "/health"

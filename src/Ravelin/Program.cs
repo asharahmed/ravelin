@@ -67,6 +67,8 @@ var app = builder.Build();
 
 // Apply role + seed-user setup at startup.
 await IdentitySeeder.SeedAsync(app.Services, app.Configuration);
+// Optional: seed realistic demo data for the public showcase (gated by Seed:DemoData).
+await DemoDataSeeder.SeedAsync(app.Services, app.Configuration);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
