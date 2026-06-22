@@ -1,0 +1,61 @@
+.theme-toggle {
+    --tt-size: 2.1rem;
+    width: var(--tt-size);
+    height: var(--tt-size);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--surface-raised);
+    color: var(--ink-soft);
+    cursor: pointer;
+    padding: 0;
+    overflow: hidden;
+    transition: color 0.2s ease, border-color 0.2s ease,
+                background-color 0.2s ease, transform 0.12s ease;
+}
+.theme-toggle:hover {
+    color: var(--brand);
+    border-color: color-mix(in oklch, var(--brand) 45%, var(--line));
+    background: color-mix(in oklch, var(--brand) 7%, var(--surface-raised));
+}
+.theme-toggle:active { transform: scale(0.92); }
+
+.tt-icon {
+    display: inline-flex;
+    transition: transform 0.45s var(--ease);
+}
+.theme-toggle.is-dark .tt-icon { transform: rotate(-360deg); }
+
+/* Rays: present in light, retracted (scaled to nothing) in dark. */
+.tt-rays {
+    transform-origin: 12px 12px;
+    transition: opacity 0.3s ease, transform 0.4s var(--ease);
+}
+.theme-toggle.is-dark .tt-rays {
+    opacity: 0;
+    transform: scale(0.4);
+}
+
+/* Sun core grows slightly into the moon disc. */
+.tt-sun-core { transition: r 0.4s ease; }
+
+/* The cut-out disc sits off-canvas (top-right) in light, swings over the core in dark
+   to bite a crescent. Filled with the page colour so it reads as a mask. */
+.tt-moon-cut {
+    fill: var(--surface-raised);
+    stroke: none;
+    transform: translate(6px, -7px);
+    opacity: 0;
+    transition: transform 0.45s var(--ease), opacity 0.25s ease;
+}
+.theme-toggle:hover .tt-moon-cut { fill: color-mix(in oklch, var(--brand) 7%, var(--surface-raised)); }
+.theme-toggle.is-dark .tt-moon-cut {
+    transform: translate(-2.5px, 1px);
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tt-icon, .tt-rays, .tt-moon-cut, .tt-sun-core, .theme-toggle { transition: none; }
+}

@@ -15,28 +15,6 @@
 .brand-row {
     padding: 1.5rem 1.4rem 1.2rem;
 }
-.brand {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    text-decoration: none;
-}
-.brand-mark {
-    display: inline-flex;
-    width: 1.7rem;
-    height: 1.7rem;
-    transition: transform 0.2s ease;
-}
-.brand:hover .brand-mark { transform: scale(1.04); }
-.brand-mark svg { width: 100%; height: 100%; }
-.brand-mark path { fill: var(--brand); }
-/* Custom monoline-geometric wordmark (bespoke letterforms, not a typeface). */
-.brand-wordmark {
-    height: 1.05rem;
-    width: auto;
-    color: var(--ink);
-    overflow: visible;
-}
 .brand-tag {
     margin-top: 0.6rem;
     padding-top: 0.6rem;

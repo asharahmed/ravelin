@@ -1,4 +1,5 @@
 @page "/login"
+@layout PublicLayout
 @using System.ComponentModel.DataAnnotations
 @inject AuthService Auth
 @inject NavigationManager Nav
@@ -6,17 +7,20 @@
 <PageTitle>Sign in — Ravelin</PageTitle>
 
 <div class="login-wrap">
-    <div class="ledger-panel login-card ledger-rise">
+    <div class="login-inner ledger-rise">
         <div class="ledger-eyebrow">Ravelin</div>
-        <h1 class="ledger-display login-title">Sign in</h1>
-        <p class="login-sub">Access your security posture, findings, and SLA compliance.</p>
+        <h1 class="ledger-display login-title">Sign in.</h1>
+        <p class="login-sub">Security posture, open findings, and SLA compliance across every project.</p>
 
         <EditForm Model="model" OnValidSubmit="SubmitAsync">
             <DataAnnotationsValidator />
 
             @if (error is not null)
             {
-                <div class="alert alert-danger" role="alert">@error</div>
+                <div class="login-error" role="alert">
+                    <span class="login-error-dot" aria-hidden="true"></span>
+                    <span>@error</span>
+                </div>
             }
 
             <div class="mb-3">
