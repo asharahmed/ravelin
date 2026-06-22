@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Ravelin mark: a bastion salient (the namesake fortification) — also an up-trend. -->
+  <style>
+    .s { fill: #7c2218; }
+    @media (prefers-color-scheme: dark) { .s { fill: #f2e9df; } }
+  </style>
+  <path class="s" d="M32 5 L59 45 L40 49.5 L32 37 L24 49.5 L5 45 Z"/>
+</svg>
