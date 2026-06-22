@@ -188,9 +188,21 @@ var apiInfo = new ApiInfo(
 
 app.MapGet("/api/info", () => apiInfo);
 
+// Responsible-disclosure policy (RFC 9116). Apt for a security product.
+app.MapGet("/.well-known/security.txt", () => Results.Text(
+    "Contact: mailto:ashar@aahmed.ca\n" +
+    "Expires: 2027-06-22T00:00:00.000Z\n" +
+    "Preferred-Languages: en\n" +
+    "Canonical: https://getravelin.xyz/.well-known/security.txt\n",
+    "text/plain"));
+
 // Auth (login -> JWT), ingestion (API key), admin (Admin role) + reads (any authenticated
 // user). See Endpoints/RavelinEndpoints.cs.
 app.MapRavelinApi();
+
+// Unmapped /api/* paths return a real 404 (JSON problem), not the Blazor SPA shell, so API
+// consumers hitting a wrong route get a proper status instead of HTML.
+app.Map("/api/{**rest}", () => Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Not Found"));
 // ------------------------------------------------------------------------------
 
 app.MapRazorComponents<App>()
