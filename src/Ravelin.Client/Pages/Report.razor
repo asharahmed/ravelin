@@ -21,7 +21,7 @@ else if (error is not null)
 }
 else
 {
-    <article class="report">
+    <article class="report" data-reveal-stagger>
         <header class="report-head">
             <span class="report-mark" aria-hidden="true">
                 <svg viewBox="0 0 64 64" width="34" height="34"><path d="M32 5 L59 45 L40 49.5 L32 37 L24 49.5 L5 45 Z" /></svg>
@@ -37,7 +37,7 @@ else
             </dl>
         </header>
 
-        <section class="report-summary">
+        <section class="report-summary reveal">
             <div class="rs-figure">
                 <div class="rs-pct">@dash!.CompliancePercent.ToString("0.#")<span>%</span></div>
                 <div class="rs-pct-label">of open findings within SLA</div>
@@ -50,7 +50,7 @@ else
             </div>
         </section>
 
-        <section class="report-block">
+        <section class="report-block reveal">
             <h2 class="report-h2">Remediation SLA policy</h2>
             <p class="report-note">The committed remediation window for each severity. A finding is breached once its deadline — first-detected date plus the window below — has passed.</p>
             <table class="report-table report-table--narrow">
@@ -64,7 +64,7 @@ else
             </table>
         </section>
 
-        <section class="report-block">
+        <section class="report-block reveal">
             <h2 class="report-h2">Open findings by severity</h2>
             <table class="report-table report-table--narrow">
                 <thead><tr><th>Severity</th><th>Open</th></tr></thead>
@@ -81,7 +81,7 @@ else
             </table>
         </section>
 
-        <section class="report-block">
+        <section class="report-block reveal">
             <h2 class="report-h2">Posture by project</h2>
             <table class="report-table">
                 <thead><tr><th>Project</th><th>Open</th><th>Breached</th><th>Due soon</th><th>Compliance</th></tr></thead>
@@ -104,7 +104,7 @@ else
             </table>
         </section>
 
-        <section class="report-block report-block--break">
+        <section class="report-block report-block--break reveal">
             <h2 class="report-h2">SLA breaches @(breaches.Count > 0 ? $"({breaches.Count})" : "")</h2>
             @if (breaches.Count == 0)
             {

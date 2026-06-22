@@ -1,7 +1,7 @@
 <div class="stat-tile @AccentClass">
     <div class="ledger-eyebrow">@Label</div>
     <div class="stat-value ledger-num">
-        <span>@Value.ToString(Fmt)</span><span class="stat-suffix">@Suffix</span>
+        <span data-count="@Value.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-decimals="@Decimals">@Value.ToString(Fmt)</span><span class="stat-suffix">@Suffix</span>
     </div>
     @if (!string.IsNullOrWhiteSpace(Caption))
     {

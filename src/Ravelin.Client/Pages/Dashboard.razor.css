@@ -159,6 +159,8 @@
 .proj-table th.num, .proj-table td.num { text-align: right; }
 
 .proj-row { cursor: pointer; transition: background-color 0.12s ease; }
+/* Reveal table rows by fade only — a translate on <tr> can jitter. Stagger delay still applies. */
+.proj-row.reveal { transform: none; }
 .proj-row:hover { background: color-mix(in oklch, var(--brand) 5%, transparent); }
 .proj-row td {
     padding: 0.7rem 0.6rem;

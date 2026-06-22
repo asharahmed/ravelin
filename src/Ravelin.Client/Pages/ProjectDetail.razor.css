@@ -205,6 +205,8 @@
     border-bottom: 2px solid var(--line-strong);
 }
 .find-row { transition: background-color 0.15s ease; }
+/* Reveal findings rows by fade only — a translate on <tr> can jitter. Stagger delay applies. */
+.find-row.reveal { transform: none; }
 .find-row:hover { background: color-mix(in oklch, var(--ink) 3%, transparent); }
 .find-row td {
     padding: 0.8rem 0.6rem;

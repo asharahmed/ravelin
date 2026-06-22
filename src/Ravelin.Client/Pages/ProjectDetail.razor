@@ -50,14 +50,14 @@ else if (error is not null)
 }
 else
 {
-    <section class="ledger-panel pd-stats ledger-rise" style="animation-delay:.05s">
+    <section class="ledger-panel pd-stats reveal">
         <StatTile Label="Open" Value="summary!.Value.open" />
         <StatTile Label="Breached" Value="summary.Value.breached" AccentClass="accent-breached" />
         <StatTile Label="Due soon" Value="summary.Value.dueSoon" AccentClass="accent-duesoon" />
         <StatTile Label="Resolved" Value="summary.Value.resolved" AccentClass="accent-ontrack" />
     </section>
 
-    <section class="ledger-panel pd-findings ledger-rise" style="animation-delay:.1s">
+    <section class="ledger-panel pd-findings reveal">
         <div class="card-head">
             <h2 class="ledger-display card-title">Findings</h2>
             <div class="pd-filter">
@@ -128,10 +128,10 @@ else
                         <AuthorizeView Roles="@TriageRoles" Context="auth"><Authorized><th></th></Authorized></AuthorizeView>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody data-reveal-stagger>
                     @foreach (var f in Visible)
                     {
-                        <tr class="find-row">
+                        <tr class="find-row reveal">
                             <td><span class="chip @SevClass(f.Severity)">@f.Severity</span></td>
                             <td>
                                 <div class="find-title">@f.Title</div>

@@ -67,12 +67,14 @@
     --space-6: 2.5rem;    /* 40 */
     --space-7: 4rem;      /* 64 */
 
-    /* Motion — one easing for entrances, one for symmetrical transitions; three durations. */
-    --ease: var(--ease);
+    /* Motion — one easing for entrances, one for symmetrical transitions; durations. */
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
     --ease-inout: cubic-bezier(0.4, 0, 0.2, 1);
     --dur-fast: 0.12s;
     --dur: 0.2s;
     --dur-slow: 0.5s;
+    --dur-reveal: 0.65s;  /* scroll-reveal entrance */
+    --dur-page: 0.32s;    /* page-transition enter */
 
     /* The ruling of the page — faint accounting-paper lines. */
     --rule-ink: oklch(0.255 0.034 252 / 0.05);
@@ -305,14 +307,14 @@ body {
     border: 1px solid var(--ink);
 }
 .seal-btn:hover:not(:disabled) { filter: brightness(1.35); }
-.seal-btn:active:not(:disabled) { transform: translateY(1px); filter: brightness(1.2); }
+.seal-btn:active:not(:disabled) { transform: translateY(1px) scale(0.985); filter: brightness(1.2); }
 .quiet-btn {
     background: transparent;
     color: var(--ink-soft);
     border: 1px solid var(--line-strong);
 }
 .quiet-btn:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
-.quiet-btn:active:not(:disabled) { transform: translateY(1px); }
+.quiet-btn:active:not(:disabled) { transform: translateY(1px) scale(0.985); }
 .seal-btn:disabled, .quiet-btn:disabled { opacity: 0.55; cursor: default; }
 
 /* Auth gate states (rendered by the router, outside any page's scoped CSS). */
@@ -349,6 +351,18 @@ body {
 }
 .ledger-rise { animation: ledger-rise 0.5s var(--ease) both; }
 
+/* Scroll reveal — content settles in as it enters the viewport. The engine that toggles
+   `.in` (and sets --reveal-i for staggered lists) lives in App.razor; see ravelinReveal.
+   A JS failsafe force-adds `.in` so content is never left invisible. */
+.reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity var(--dur-reveal) var(--ease), transform var(--dur-reveal) var(--ease);
+    transition-delay: calc(var(--reveal-i, 0) * 0.04s);
+    will-change: opacity, transform;
+}
+.reveal.in { opacity: 1; transform: none; }
+
 @keyframes ledger-shimmer { to { background-position: -200% 0; } }
 .skeleton {
     border-radius: var(--radius-sm);
@@ -365,6 +379,7 @@ body {
     .ledger-rise { animation: none; }
     .skeleton { animation: none; }
     .ledger-panel--interactive { transition: none; }
+    .reveal { opacity: 1; transform: none; transition: none; }
 }
 
 /* ── Print: a compliance report should print as a clean document, not the app ── */
@@ -378,6 +393,9 @@ body {
     html, body, .page, main { background: #fff !important; }
     .page { display: block !important; }
     main article.content { padding: 0 !important; }
+
+    /* Reveal animations don't run reliably in print — never leave content hidden. */
+    .reveal { opacity: 1 !important; transform: none !important; }
 
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     @page { margin: 1.4cm; }

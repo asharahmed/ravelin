@@ -1,0 +1,47 @@
+@implements IDisposable
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+@* Wraps a layout's @Body and replays a "fade + rise" enter animation on every route change.
+   Re-keying the wrapper div forces Blazor to recreate it, which restarts the CSS animation
+   reliably (a class toggle would need a forced reflow). Reduced-motion is handled in the
+   scoped CSS. After navigating, it re-kicks the scroll-reveal engine for the new page. *@
+<div class="page-enter" @key="_navKey">@ChildContent</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private int _navKey;
+    private string? _lastPath;
+    private bool _kickReveal;
+
+    protected override void OnInitialized()
+    {
+        _lastPath = PathOf(Nav.Uri);
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        var path = PathOf(e.Location);
+        // Ignore hash-only / same-path navigations so in-page anchors (e.g. #how) don't replay.
+        if (string.Equals(path, _lastPath, StringComparison.Ordinal)) return;
+        _lastPath = path;
+        _navKey++;
+        _kickReveal = true;
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_kickReveal) return;
+        _kickReveal = false;
+        // Belt-and-suspenders to the MutationObserver: sweep the new page's above-the-fold
+        // reveals and reset the failsafe timer.
+        try { await JS.InvokeVoidAsync("ravelinReveal"); } catch { /* JS not ready — ignore */ }
+    }
+
+    private static string PathOf(string uri) => new Uri(uri).GetLeftPart(UriPartial.Path);
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+}

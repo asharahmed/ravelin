@@ -79,20 +79,68 @@
                     window.ravelinCountUp(n, parseFloat(n.dataset.count) || 0, 1100, parseInt(n.dataset.decimals) || 0);
                 });
             }
-            // Scroll-reveal: fade/slide elements in as they enter the viewport (once).
-            window.ravelinReveal = function () {
-                var els = document.querySelectorAll('.reveal:not(.in)');
-                if (prefersReduce() || !('IntersectionObserver' in window)) {
-                    els.forEach(function (e) { e.classList.add('in'); countWithin(e); });
-                    return;
-                }
-                var io = new IntersectionObserver(function (entries) {
-                    entries.forEach(function (en) {
-                        if (en.isIntersecting) { en.target.classList.add('in'); countWithin(en.target); io.unobserve(en.target); }
+            // Scroll-reveal engine: ONE persistent IntersectionObserver reveals elements as they
+            // enter the viewport; a MutationObserver auto-registers any `.reveal` added later
+            // (async portal content, pages mounted after navigation) so no per-page wiring is
+            // needed; and a timeout failsafe guarantees content is never left invisible.
+            var _revealIO = null, _revealMO = null;
+            function revealNow(el) {
+                if (!el || !el.classList || el.classList.contains('in')) return;
+                el.classList.add('in'); countWithin(el);
+            }
+            function revealAllHidden() {
+                document.querySelectorAll('.reveal:not(.in)').forEach(revealNow);
+            }
+            // Number the .reveal children of [data-reveal-stagger] containers for CSS stagger.
+            function indexStagger(scope) {
+                var root = (scope && scope.querySelectorAll) ? scope : document;
+                var containers = [];
+                if (root.matches && root.matches('[data-reveal-stagger]')) containers.push(root);
+                if (root.querySelectorAll) root.querySelectorAll('[data-reveal-stagger]').forEach(function (c) { containers.push(c); });
+                containers.forEach(function (container) {
+                    var i = 0;
+                    Array.prototype.forEach.call(container.children, function (child) {
+                        if (child.classList && child.classList.contains('reveal')) {
+                            child.style.setProperty('--reveal-i', Math.min(i, 12)); i++;
+                        }
                     });
-                }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
-                els.forEach(function (e) { io.observe(e); });
+                });
+            }
+            function registerReveals(scope) {
+                if (!_revealIO) return;
+                var root = (scope && scope.querySelectorAll) ? scope : document;
+                if (root.matches && root.matches('.reveal:not(.in):not([data-reveal-bound])')) {
+                    root.dataset.revealBound = '1'; _revealIO.observe(root);
+                }
+                if (root.querySelectorAll) root.querySelectorAll('.reveal:not(.in):not([data-reveal-bound])').forEach(function (el) {
+                    el.dataset.revealBound = '1'; _revealIO.observe(el);
+                });
+            }
+            // Idempotent init / re-kick. Call any time (page load, after navigation).
+            window.ravelinReveal = function () {
+                if (prefersReduce() || !('IntersectionObserver' in window)) { revealAllHidden(); return; }
+                if (!_revealIO) {
+                    _revealIO = new IntersectionObserver(function (entries) {
+                        entries.forEach(function (en) { if (en.isIntersecting) { revealNow(en.target); _revealIO.unobserve(en.target); } });
+                    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+                }
+                if (!_revealMO && 'MutationObserver' in window && document.body) {
+                    _revealMO = new MutationObserver(function (muts) {
+                        muts.forEach(function (m) {
+                            Array.prototype.forEach.call(m.addedNodes, function (n) {
+                                if (n.nodeType !== 1) return; indexStagger(n); registerReveals(n);
+                            });
+                        });
+                    });
+                    _revealMO.observe(document.body, { childList: true, subtree: true });
+                }
+                indexStagger(document); registerReveals(document);
+                setTimeout(revealAllHidden, 1200); // failsafe: never leave content invisible
             };
+            // Auto-init when the DOM is ready (often before Blazor's first render).
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function () { window.ravelinReveal(); });
+            } else { window.ravelinReveal(); }
             // Lightweight scroll parallax for [data-parallax] (speed factor, viewport-centred).
             window.ravelinParallax = function () {
                 if (prefersReduce()) return;

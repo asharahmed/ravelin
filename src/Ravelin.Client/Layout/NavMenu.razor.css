@@ -51,10 +51,11 @@
     font-weight: 500;
     width: 100%;
     box-shadow: inset 2px 0 0 transparent;
-    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    transition: background-color 0.15s ease, color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 .nav-item ::deep a.active {
     color: var(--ink);
+    /* The brand rail grows to full height on the active route. */
     box-shadow: inset 3px 0 0 var(--brand);
 }
 .nav-item ::deep .nav-link:hover {

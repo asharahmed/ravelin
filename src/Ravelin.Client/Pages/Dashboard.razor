@@ -49,7 +49,7 @@ else if (data is null || data.ProjectCount == 0)
 }
 else
 {
-    <section class="ledger-panel balance-sheet ledger-rise" style="animation-delay:.05s">
+    <section class="ledger-panel balance-sheet reveal">
         <div class="bs-balance">
             <div class="led-label">Overall SLA compliance</div>
             <RadialGauge Percent="data.CompliancePercent" Label="within SLA" />
@@ -66,8 +66,8 @@ else
         </div>
     </section>
 
-    <section class="dash-grid">
-        <div class="ledger-panel dash-card ledger-rise" style="animation-delay:.1s">
+    <section class="dash-grid" data-reveal-stagger>
+        <div class="ledger-panel dash-card reveal">
             <div class="card-head">
                 <h2 class="ledger-display card-title">By severity</h2>
                 <span class="ledger-eyebrow">open findings</span>
@@ -85,7 +85,7 @@ else
             </div>
         </div>
 
-        <div class="ledger-panel dash-card ledger-rise" style="animation-delay:.15s">
+        <div class="ledger-panel dash-card reveal">
             <div class="card-head">
                 <h2 class="ledger-display card-title">SLA status</h2>
                 <span class="ledger-eyebrow">open findings</span>
@@ -98,7 +98,7 @@ else
             </div>
         </div>
 
-        <div class="ledger-panel dash-card dash-card-wide ledger-rise" style="animation-delay:.2s">
+        <div class="ledger-panel dash-card dash-card-wide reveal">
             <div class="card-head">
                 <h2 class="ledger-display card-title">Opened vs resolved</h2>
                 <span class="ledger-eyebrow">last 8 weeks</span>
@@ -110,7 +110,7 @@ else
         </div>
     </section>
 
-    <section class="ledger-panel dash-projects ledger-rise" style="animation-delay:.25s">
+    <section class="ledger-panel dash-projects reveal">
         <div class="card-head">
             <h2 class="ledger-display card-title">By project</h2>
             <button class="dash-export" @onclick="ExportReport" title="Download an audit-ready compliance report (CSV)">
@@ -130,11 +130,11 @@ else
                     <th class="compliance-col">Compliance</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody data-reveal-stagger>
                 @foreach (var p in data.Projects)
                 {
                     <tr @onclick="() => GoTo(p.Key)" @onkeydown="e => OnRowKey(e, p.Key)"
-                        class="proj-row" role="link" tabindex="0"
+                        class="proj-row reveal" role="link" tabindex="0"
                         aria-label="@($"Open {p.Name}: {p.Open} open, {p.CompliancePercent:F0}% within SLA")">
                         <td>
                             <div class="proj-name">@p.Name <span class="proj-go" aria-hidden="true">→</span></div>
