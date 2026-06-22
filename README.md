@@ -21,9 +21,8 @@ vendor-neutral, API-first, and self-hosted.
 
 > A *ravelin* is a triangular outwork built in front of a fortress wall. The logo is its salient.
 
-**Live demo:** <https://ca-ravelin-dev.thankfulsea-7af22cac.canadacentral.azurecontainerapps.io>
-— runs on scale-to-zero infrastructure, so the first request after an idle period takes a few
-seconds to wake.
+**Live demo:** <https://getravelin.xyz> — runs on scale-to-zero infrastructure, so the first
+request after an idle period takes a few seconds to wake.
 
 ![Ravelin](./docs/screenshot.png)
 

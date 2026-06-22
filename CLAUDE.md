@@ -223,6 +223,11 @@ Vision + all 6 technical decisions agreed. Build plan defined.
     **University of Birmingham tenant** `b024cacf-...`. Resource providers registered.
   - **Terraform applied — infra LIVE** (8 resources). Outputs:
     - app_url: `https://ca-ravelin-dev.thankfulsea-7af22cac.canadacentral.azurecontainerapps.io`
+    - **Custom domain LIVE: `https://getravelin.xyz`** (user bought it on Namecheap; A →
+      env static IP `20.220.50.171` + `asuid` TXT = customDomainVerificationId). Bound via
+      `az containerapp hostname add`/`bind --validation-method HTTP` → managed cert
+      `mc-cae-ravelin-de-getravelin-xyz-8792` (state Succeeded, SniEnabled). Health 200 over
+      HTTPS with valid TLS. security.txt Canonical already points here.
     - acr: `acrravelindevs8066d` / `acrravelindevs8066d.azurecr.io`
     - rg: `rg-ravelin-dev`, container app: `ca-ravelin-dev`
     - State storage: `rg-ravelin-tfstate` / `stravelintfdfe8f1bd` / container `tfstate`.
