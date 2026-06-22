@@ -119,6 +119,9 @@ body {
     color: var(--ink);
     font-family: var(--font-mono);
     font-size: 0.9rem;
+    /* Contain full-bleed (100vw) decorative layers without a horizontal scrollbar.
+       'clip' (unlike 'hidden') doesn't create a scroll container, so position:sticky still works. */
+    overflow-x: clip;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
 }

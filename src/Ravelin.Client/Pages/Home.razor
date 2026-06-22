@@ -5,7 +5,7 @@
 @inject AuthenticationStateProvider AuthState
 @inject IJSRuntime JS
 
-<PageTitle>Ravelin — vulnerability SLA &amp; compliance tracker</PageTitle>
+<PageTitle>Ravelin: vulnerability SLA &amp; compliance tracker</PageTitle>
 
 <div class="landing">
 
@@ -25,7 +25,7 @@
             </h1>
             <p class="hero-lead">
                 Ravelin takes the dependency scans your CI already runs and holds each finding to a
-                remediation SLA based on its severity — so you see what's overdue, where compliance is
+                remediation SLA based on its severity, so you see what's overdue, where compliance is
                 slipping, and how it's trending.
             </p>
 
@@ -55,7 +55,7 @@
 
     @* ───────── Integrations ───────── *@
     <section class="integ reveal">
-        <div class="integ-head">Speaks your pipeline's language — push results from the scanners you already run.</div>
+        <div class="integ-head">Speaks your pipeline's language. Push results from the scanners you already run.</div>
         <IntegrationMarquee />
     </section>
 
@@ -88,7 +88,7 @@
             <li class="step">
                 <span class="entry-no">02</span>
                 <h3 class="step-title">Get deadlines</h3>
-                <p class="step-body">Each finding inherits a remediation SLA from its severity. The clock starts the moment it's first seen — no spreadsheets, no manual triage queue.</p>
+                <p class="step-body">Each finding inherits a remediation SLA from its severity. The clock starts the moment it's first seen. No spreadsheets, no manual triage queue.</p>
             </li>
             <li class="step">
                 <span class="entry-no">03</span>
@@ -142,7 +142,7 @@
             <h2 class="ledger-display sec-title">More than a scanner. Lighter than a GRC suite.</h2>
             <p class="sec-lead">
                 Scanners find the problems; GRC platforms automate the entire audit. Ravelin owns
-                the slice in between — turning the scans you already run into enforced SLAs and
+                the slice in between, turning the scans you already run into enforced SLAs and
                 evidence, without the platform, the price, or the lock-in.
             </p>
         </header>
@@ -168,8 +168,8 @@
             }
         </div>
         <p class="cmp-note">
-            ✓ yes&nbsp;·&nbsp;◗ limited&nbsp;·&nbsp;— no. &nbsp;Ravelin isn't a GRC platform by
-            design: if you need continuous evidence across every control, use one — and let Ravelin
+            ✓ yes&nbsp;·&nbsp;◗ limited&nbsp;·&nbsp;✗ no. &nbsp;Ravelin isn't a GRC platform by
+            design: if you need continuous evidence across every control, use one, and let Ravelin
             own the vulnerability slice.
         </p>
     </section>
@@ -181,7 +181,7 @@
             <h2 class="ledger-display sec-title">The frameworks you're audited against expect this.</h2>
             <p class="sec-lead">
                 Nearly every modern security standard now requires vulnerabilities to be remediated
-                within defined, severity-based timeframes — and asks you to <em>prove</em> it. Ravelin
+                within defined, severity-based timeframes, and asks you to <em>prove</em> it. Ravelin
                 enforces those windows and keeps the evidence on the record.
             </p>
         </header>
@@ -195,7 +195,7 @@
                 </article>
             }
         </div>
-        <p class="comply-note">Ravelin produces the SLA enforcement and audit evidence these controls call for. It doesn't grant certification — your auditor does.</p>
+        <p class="comply-note">Ravelin produces the SLA enforcement and audit evidence these controls call for. It doesn't grant certification. Your auditor does.</p>
     </section>
 
     @* ───────── Features ───────── *@
@@ -246,23 +246,23 @@
     private static readonly Standard[] Standards =
     [
         new("PCI DSS 4.0",
-            "Req. 6.3.3 — remediate vulnerabilities within timeframes set by their severity ranking.",
+            "Req. 6.3.3: remediate vulnerabilities within timeframes set by their severity ranking.",
             "Every finding inherits a severity-based deadline; breaches are flagged the moment they pass."),
         new("ISO/IEC 27001:2022",
-            "Annex A 8.8 — manage technical vulnerabilities on a defined, risk-based timeline.",
+            "Annex A 8.8: manage technical vulnerabilities on a defined, risk-based timeline.",
             "Per-severity windows, re-baselined when policy changes, with a complete audit trail."),
         new("SOC 2",
-            "CC7.1 — detect, evaluate, and remediate vulnerabilities, and show the evidence.",
+            "CC7.1: detect, evaluate, and remediate vulnerabilities, and show the evidence.",
             "Compliance trend over time plus a written justification on every suppression."),
         new("NIST SP 800-218 · SSDF",
-            "RV.1–RV.2 — identify, prioritise, and remediate vulnerabilities by risk.",
+            "RV.1 to RV.2: identify, prioritise, and remediate vulnerabilities by risk.",
             "Severity-driven prioritisation and opened-vs-resolved tracking, per project."),
         new("CVSS · NVD",
             "Score vulnerabilities by severity to drive remediation priority.",
             "CVSS severity maps straight onto Critical / High / Medium / Low SLA tiers."),
         new("CISA KEV",
             "Give known-exploited vulnerabilities the shortest path to a fix.",
-            "Critical findings carry the tightest window — seven days by default."),
+            "Critical findings carry the tightest window: seven days by default."),
     ];
 
     private record Cmp(string Cap, string Scanners, string Grc, string Us);
@@ -281,7 +281,7 @@
     {
         "yes" => ("cmp-yes", "✓", "yes"),
         "partial" => ("cmp-partial", "◗", "limited"),
-        _ => ("cmp-no", "—", "no"),
+        _ => ("cmp-no", "✗", "no"),
     };
 
     private record Feature(string Title, string Body, string Icon);
@@ -291,19 +291,19 @@
             "Critical to low, each tier carries its own remediation window. Re-baseline the policy and open findings re-clock instantly.",
             Ico("M12 2 3 6v6c0 5 3.8 9.7 9 11 5.2-1.3 9-6 9-11V6l-9-4z")),
         new("Trends over time",
-            "Opened versus resolved, week over week, with a compliance percentage — per project and across every project.",
+            "Opened versus resolved, week over week, with a compliance percentage, per project and across every project.",
             Ico("M3 17l5-5 4 4 8-9 M21 7v6 M21 7h-6")),
         new("Auditable triage",
             "False-positive or accepted-risk? Ravelin requires a written justification, and keeps it on the record.",
             Ico("M9 12l2 2 4-4 M21 12a9 9 0 11-18 0 9 9 0 0118 0z")),
         new("Scoped API keys",
-            "Pipelines authenticate with hashed, rotatable keys bound to a single project. The key — never the route — decides scope.",
+            "Pipelines authenticate with hashed, rotatable keys bound to a single project. The key, never the route, decides scope.",
             Ico("M15 7a4 4 0 100 8 4 4 0 000-8z M11 11l-8 8 M7 15l2 2 M9 13l2 2")),
         new("Role-based access",
-            "Admin, Analyst, Viewer — enforced on every endpoint, deny-by-default, Entra-ready for SSO.",
+            "Admin, Analyst, Viewer: enforced on every endpoint, deny-by-default, Entra-ready for SSO.",
             Ico("M16 18a4 4 0 00-8 0 M12 10a3 3 0 100-6 3 3 0 000 6z M5 21a7 7 0 0114 0")),
         new("Eats its own dog food",
-            "The pipeline scans this app — dependencies, code, secrets, container, and IaC — on every build.",
+            "On every build, the pipeline scans this app's dependencies, code, secrets, container, and IaC.",
             Ico("M4 7h16 M4 12h16 M4 17h10 M19 15l2 2-2 2")),
     ];
 

@@ -40,10 +40,15 @@
 }
 .hero-copy { position: relative; z-index: 1; max-width: 36rem; }
 
-/* Ambient hero background — drifting orbs + a parallax dot grid. */
+/* Ambient hero background — drifting orbs + a parallax dot grid.
+   Full-bleed to the viewport so the glow fades into the page edges instead of being
+   clipped at the centred content column (which left a hard cutoff in the side whitespace). */
 .hero-bg {
     position: absolute;
-    inset: -12% -8% -8%;
+    top: -12%;
+    bottom: -8%;
+    left: calc(50% - 50vw);
+    width: 100vw;
     overflow: hidden;
     pointer-events: none;
     z-index: 0;
