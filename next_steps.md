@@ -15,7 +15,7 @@ and live on Azure.** Next up is **Stage 4b (Blazor login UI)**, then Stages 5–
 
 - **Live app:** https://ca-ravelin-dev.thankfulsea-7af22cac.canadacentral.azurecontainerapps.io
 - **Repo:** https://github.com/asharahmed/ravelin (branch `main`)
-- **Deployed image:** `ravelin:0.4.3`
+- **Deployed image:** `ravelin:0.5.0` (Stage 5 + dark mode; revision `ca-ravelin-dev--0000018`)
 - **Working dir:** `/Users/ashar/proj/ravelin`
 
 | Stage | Summary | State |
@@ -26,7 +26,7 @@ and live on Azure.** Next up is **Stage 4b (Blazor login UI)**, then Stages 5–
 | 3 | Ingestion API (hashed API keys, dedup + auto-resolve, validation) | ✅ live |
 | 4a | Identity + JWT + RBAC (Admin/Analyst/Viewer) | ✅ live |
 | 4b | Blazor login UI | ✅ live |
-| 5 | SLA engine + triage workflow | ✅ built (deploy pending) |
+| 5 | SLA engine + triage workflow | ✅ live |
 | 6 | Dashboards | ⬜ **next** |
 | 7 | Compliance report export (PDF/shareable) | ⬜ |
 | 8 | DevSecOps hardening (pipeline scanners, Key Vault, MI→SQL) | ⬜ |

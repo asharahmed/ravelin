@@ -144,7 +144,12 @@ the vision doc wins. Keep both updated as decisions are made.
 - Client is **Blazor Web App, InteractiveWebAssembly, prerender:false** — auth components run
   in WASM only, so the host needs no AuthenticationStateProvider.
 
-## Stage 5 — DONE (SLA engine + triage); deploy pending
+## Stage 5 — DONE (SLA engine + triage); LIVE (image 0.5.0, revision 0000018)
+- Verified live: sla-policies, sla-summary (compliance 100%), findings carry SLA state.
+- **Dark mode (separate from Stage 5, same deploy):** Bootstrap 5.3 `data-bs-theme` toggle.
+  Flash-free inline head script in `Components/App.razor` applies saved/OS theme before paint
+  + exposes `window.ravelinTheme` (get/set/toggle, localStorage). `ThemeToggle.razor` in the
+  top row. Top row uses `--bs-*` theme vars; dark link-contrast fix in `app.css`.
 - **Domain** (`Ravelin.Domain/Services`): `SlaEvaluator` (pure) — `SlaState`
   (NotApplicable/OnTrack/DueSoon/Breached), `Evaluate(status,dueAt,now,window)` returns
   state + whole `DaysRemaining` (negative=overdue); `ComputeDueDate` (now reused by
