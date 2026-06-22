@@ -7,6 +7,7 @@
 <p align="center"><b>Vendor-neutral vulnerability SLA &amp; compliance tracker.</b></p>
 
 <p align="center">
+  <a href="https://github.com/asharahmed/ravelin/actions/workflows/security.yml"><img alt="Security scan" src="https://github.com/asharahmed/ravelin/actions/workflows/security.yml/badge.svg"></a>
   <a href="https://dotnet.microsoft.com/"><img alt=".NET 10" src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white"></a>
   <a href="https://learn.microsoft.com/aspnet/core/blazor/"><img alt="Blazor WebAssembly" src="https://img.shields.io/badge/Blazor-WASM-512BD4?logo=blazor&logoColor=white"></a>
   <a href="https://azure.microsoft.com/products/container-apps"><img alt="Azure Container Apps" src="https://img.shields.io/badge/Azure-Container%20Apps-0078D4?logo=microsoftazure&logoColor=white"></a>
