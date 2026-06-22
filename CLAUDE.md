@@ -169,6 +169,25 @@ the vision doc wins. Keep both updated as decisions are made.
   carry SLA state, triage works, RBAC (viewer 403 on triage+PUT, note-required 400). Demo
   data restored after test.
 
+## Stage 6 — DONE (dashboards, "Compliance Ledger" UI); deploy pending
+- **Aesthetic:** "Compliance Ledger" — editorial, light-first, semantic severity colour,
+  Fraunces (display) + Archivo (body), OKLCH palette, dark-mode aware. Zero chart-lib deps
+  (the SCA story stays clean). Tokens in `src/Ravelin/wwwroot/ledger.css` (linked in
+  `App.razor`); count-up + theme helpers in `App.razor` inline script.
+- **Server:** `GET /api/dashboard` (any auth) → `DashboardDto` rollup: totals, compliance%,
+  open-by-severity, per-project posture, 8-week opened-vs-resolved trend (uses `SlaEvaluator`).
+  Contracts in `DashboardContracts.cs`.
+- **Chart components** (`Ravelin.Client/Components`, pure SVG/CSS, reduced-motion safe):
+  `RadialGauge` (animated arc, `pathLength=100`), `BarMeter`, `TrendChart` (SVG area),
+  `StatTile` (JS count-up via `ravelinCountUp`).
+- **Pages:** `Dashboard.razor` (`/dashboard`, signed-in landing — gauge + KPIs + severity/SLA
+  bars + trend + per-project table linking to detail); `ProjectDetail.razor`
+  (`/projects/{key}`) with **inline triage** (status + note, gated to Admin/Analyst via
+  `AuthorizeView`). Old `Projects.razor` list removed (dashboard is the hub). `Home.razor`
+  is now a branded landing (auto-redirects signed-in users to `/dashboard`); login redirects
+  to `/dashboard`. NavMenu + sidebar restyled on-palette.
+- Build clean (0 warn), endpoint verified vs Azure SQL. Browser visual check pending (user).
+
 ## Current status
 Vision + all 6 technical decisions agreed. Build plan defined.
 **Stage 0 (foundations / walking skeleton) — code complete & verified natively:**

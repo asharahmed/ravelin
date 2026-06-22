@@ -5,10 +5,11 @@
 
 <PageTitle>Sign in — Ravelin</PageTitle>
 
-<div class="row justify-content-center">
-    <div class="col-md-5">
-        <h1>Sign in</h1>
-        <p class="text-muted">Use your Ravelin account to access projects and findings.</p>
+<div class="login-wrap">
+    <div class="ledger-panel login-card ledger-rise">
+        <div class="ledger-eyebrow">Ravelin</div>
+        <h1 class="ledger-display login-title">Sign in</h1>
+        <p class="login-sub">Access your security posture, findings, and SLA compliance.</p>
 
         <EditForm Model="model" OnValidSubmit="SubmitAsync">
             <DataAnnotationsValidator />
@@ -32,7 +33,7 @@
                 <ValidationMessage For="() => model.Password" />
             </div>
 
-            <button class="btn btn-primary" type="submit" disabled="@busy">
+            <button class="login-submit" type="submit" disabled="@busy">
                 @(busy ? "Signing in…" : "Sign in")
             </button>
         </EditForm>
@@ -62,7 +63,7 @@
 
         if (error is null)
         {
-            Nav.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "" : ReturnUrl);
+            Nav.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "dashboard" : ReturnUrl);
         }
     }
 

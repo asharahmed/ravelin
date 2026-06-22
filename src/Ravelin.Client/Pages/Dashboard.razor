@@ -1,0 +1,175 @@
+@page "/dashboard"
+@attribute [Authorize]
+@inject HttpClient Http
+
+<PageTitle>Posture — Ravelin</PageTitle>
+
+<header class="dash-head ledger-rise">
+    <div>
+        <div class="ledger-eyebrow">Ravelin / Security posture</div>
+        <h1 class="ledger-display dash-title">The state of remediation</h1>
+    </div>
+    <div class="dash-asof">
+        <span class="ledger-eyebrow">As of</span>
+        <span class="ledger-num">@DateTime.Now.ToString("MMM d, yyyy")</span>
+    </div>
+</header>
+
+@if (loading)
+{
+    <p class="dash-loading">Reading the ledger…</p>
+}
+else if (error is not null)
+{
+    <div class="ledger-panel dash-error">Could not load the dashboard: @error</div>
+}
+else if (data is null || data.ProjectCount == 0)
+{
+    <div class="ledger-panel dash-empty ledger-rise">
+        <h2 class="ledger-display">No projects yet</h2>
+        <p>Create a project and push a scan to <code>/api/ingest</code>, and your security posture will appear here — SLA compliance, breaches, and remediation trend.</p>
+    </div>
+}
+else
+{
+    <section class="dash-hero ledger-rise" style="animation-delay:.05s">
+        <div class="ledger-panel hero-gauge">
+            <div class="ledger-eyebrow">Overall SLA compliance</div>
+            <RadialGauge Percent="data.CompliancePercent" Label="within SLA" />
+            <p class="hero-gauge-note">
+                @data.OnTrack on track · @data.DueSoon due soon · @data.Breached breached
+            </p>
+        </div>
+
+        <div class="hero-stats">
+            <div class="ledger-panel"><StatTile Label="Open findings" Value="data.TotalOpen" Caption="@($"across {data.ProjectCount} project{(data.ProjectCount == 1 ? "" : "s")}")" /></div>
+            <div class="ledger-panel"><StatTile Label="Breached" Value="data.Breached" AccentClass="accent-breached" Caption="past SLA deadline" /></div>
+            <div class="ledger-panel"><StatTile Label="Due soon" Value="data.DueSoon" AccentClass="accent-duesoon" Caption="within 7 days" /></div>
+            <div class="ledger-panel"><StatTile Label="On track" Value="data.OnTrack" AccentClass="accent-ontrack" Caption="comfortably in window" /></div>
+        </div>
+    </section>
+
+    <section class="dash-grid">
+        <div class="ledger-panel dash-card ledger-rise" style="animation-delay:.1s">
+            <div class="card-head">
+                <h2 class="ledger-display card-title">By severity</h2>
+                <span class="ledger-eyebrow">open findings</span>
+            </div>
+            <hr class="ledger-rule" />
+            <div class="card-body">
+                <BarMeter Label="Critical" Value="data.OpenBySeverity.Critical" Max="SevMax" ColorClass="sev-critical" />
+                <BarMeter Label="High" Value="data.OpenBySeverity.High" Max="SevMax" ColorClass="sev-high" />
+                <BarMeter Label="Medium" Value="data.OpenBySeverity.Medium" Max="SevMax" ColorClass="sev-medium" />
+                <BarMeter Label="Low" Value="data.OpenBySeverity.Low" Max="SevMax" ColorClass="sev-low" />
+                @if (data.OpenBySeverity.Unknown > 0)
+                {
+                    <BarMeter Label="Unknown" Value="data.OpenBySeverity.Unknown" Max="SevMax" ColorClass="sev-unknown" />
+                }
+            </div>
+        </div>
+
+        <div class="ledger-panel dash-card ledger-rise" style="animation-delay:.15s">
+            <div class="card-head">
+                <h2 class="ledger-display card-title">SLA status</h2>
+                <span class="ledger-eyebrow">open findings</span>
+            </div>
+            <hr class="ledger-rule" />
+            <div class="card-body">
+                <BarMeter Label="On track" Value="data.OnTrack" Max="data.TotalOpen" ColorClass="sla-ontrack" />
+                <BarMeter Label="Due soon" Value="data.DueSoon" Max="data.TotalOpen" ColorClass="sla-duesoon" />
+                <BarMeter Label="Breached" Value="data.Breached" Max="data.TotalOpen" ColorClass="sla-breached" />
+            </div>
+        </div>
+
+        <div class="ledger-panel dash-card dash-card-wide ledger-rise" style="animation-delay:.2s">
+            <div class="card-head">
+                <h2 class="ledger-display card-title">Opened vs resolved</h2>
+                <span class="ledger-eyebrow">last 8 weeks</span>
+            </div>
+            <hr class="ledger-rule" />
+            <div class="card-body">
+                <TrendChart Points="data.Trend" />
+            </div>
+        </div>
+    </section>
+
+    <section class="ledger-panel dash-projects ledger-rise" style="animation-delay:.25s">
+        <div class="card-head">
+            <h2 class="ledger-display card-title">By project</h2>
+            <span class="ledger-eyebrow">most at-risk first</span>
+        </div>
+        <hr class="ledger-rule" />
+        <table class="proj-table">
+            <thead>
+                <tr>
+                    <th>Project</th>
+                    <th class="num">Open</th>
+                    <th class="num">Breached</th>
+                    <th class="compliance-col">Compliance</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in data.Projects)
+                {
+                    <tr @onclick="() => GoTo(p.Key)" class="proj-row">
+                        <td>
+                            <div class="proj-name">@p.Name</div>
+                            <code class="proj-key">@p.Key</code>
+                        </td>
+                        <td class="num ledger-num">@p.Open</td>
+                        <td class="num">
+                            @if (p.Breached > 0)
+                            {
+                                <span class="chip sla-breached">@p.Breached</span>
+                            }
+                            else
+                            {
+                                <span class="proj-clear">—</span>
+                            }
+                        </td>
+                        <td class="compliance-col">
+                            <div class="proj-compliance">
+                                <span class="proj-bar"><span class="proj-bar-fill @ComplianceClass(p.CompliancePercent)" style="--w:@p.CompliancePercent.ToString(System.Globalization.CultureInfo.InvariantCulture)%;"></span></span>
+                                <span class="ledger-num proj-pct">@p.CompliancePercent.ToString("F0")%</span>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+}
+
+@code {
+    private DashboardDto? data;
+    private bool loading = true;
+    private string? error;
+
+    private int SevMax => data is null ? 1 : Math.Max(1, new[]
+    {
+        data.OpenBySeverity.Critical, data.OpenBySeverity.High,
+        data.OpenBySeverity.Medium, data.OpenBySeverity.Low, data.OpenBySeverity.Unknown,
+    }.Max());
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            data = await Http.GetFromJsonAsync<DashboardDto>("api/dashboard");
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void GoTo(string key) => Nav.NavigateTo($"projects/{key}");
+
+    private static string ComplianceClass(double pct) => pct >= 90 ? "good" : pct >= 70 ? "warn" : "bad";
+
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+}

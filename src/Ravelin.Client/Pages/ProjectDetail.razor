@@ -1,0 +1,269 @@
+@page "/projects/{Key}"
+@attribute [Authorize]
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+<PageTitle>@(project?.Name ?? Key) — Ravelin</PageTitle>
+
+<a class="back-link" href="dashboard">← Posture</a>
+
+<header class="pd-head ledger-rise">
+    <div>
+        <div class="ledger-eyebrow">Project</div>
+        <h1 class="ledger-display pd-title">@(project?.Name ?? Key)</h1>
+        <code class="pd-key">@Key</code>
+    </div>
+    @if (summary is not null)
+    {
+        <div class="ledger-panel pd-gauge">
+            <RadialGauge Percent="summary.Value.compliance" Label="within SLA" />
+        </div>
+    }
+</header>
+
+@if (loading)
+{
+    <p class="pd-loading">Loading findings…</p>
+}
+else if (error is not null)
+{
+    <div class="ledger-panel pd-error">@error</div>
+}
+else
+{
+    <section class="pd-stats ledger-rise" style="animation-delay:.05s">
+        <div class="ledger-panel"><StatTile Label="Open" Value="summary!.Value.open" /></div>
+        <div class="ledger-panel"><StatTile Label="Breached" Value="summary.Value.breached" AccentClass="accent-breached" /></div>
+        <div class="ledger-panel"><StatTile Label="Due soon" Value="summary.Value.dueSoon" AccentClass="accent-duesoon" /></div>
+        <div class="ledger-panel"><StatTile Label="Resolved" Value="summary.Value.resolved" AccentClass="accent-ontrack" /></div>
+    </section>
+
+    <section class="ledger-panel pd-findings ledger-rise" style="animation-delay:.1s">
+        <div class="card-head">
+            <h2 class="ledger-display card-title">Findings</h2>
+            <div class="pd-filter">
+                @foreach (var f in filters)
+                {
+                    <button class="pd-chip @(activeFilter == f ? "is-active" : "")" @onclick="() => activeFilter = f">@f</button>
+                }
+            </div>
+        </div>
+        <hr class="ledger-rule" />
+
+        @if (!Visible.Any())
+        {
+            <p class="pd-empty">No @(activeFilter == "All" ? "" : activeFilter.ToLower() + " ")findings.</p>
+        }
+        else
+        {
+            <table class="find-table">
+                <thead>
+                    <tr>
+                        <th>Severity</th>
+                        <th>Vulnerability</th>
+                        <th>Package</th>
+                        <th>Status</th>
+                        <th>SLA</th>
+                        <AuthorizeView Roles="@TriageRoles" Context="auth"><Authorized><th></th></Authorized></AuthorizeView>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var f in Visible)
+                    {
+                        <tr class="find-row">
+                            <td><span class="chip @SevClass(f.Severity)">@f.Severity</span></td>
+                            <td>
+                                <div class="find-title">@f.Title</div>
+                                <code class="find-vuln">@f.VulnerabilityId</code>
+                            </td>
+                            <td><span class="find-pkg">@f.PackageName</span> <span class="find-ver">@f.PackageVersion</span></td>
+                            <td><span class="find-status">@Humanize(f.Status)</span></td>
+                            <td>@SlaCell(f)</td>
+                            <AuthorizeView Roles="@TriageRoles" Context="auth">
+                                <Authorized>
+                                    <td class="find-action">
+                                        <button class="pd-triage-btn" @onclick="() => OpenTriage(f)">Triage</button>
+                                    </td>
+                                </Authorized>
+                            </AuthorizeView>
+                        </tr>
+                        @if (editingId == f.Id)
+                        {
+                            <tr class="triage-row">
+                                <td colspan="6">
+                                    <div class="triage-panel">
+                                        <div class="triage-fields">
+                                            <label>
+                                                <span class="ledger-eyebrow">New status</span>
+                                                <select @bind="triageStatus">
+                                                    <option value="Open">Open (reopen)</option>
+                                                    <option value="Resolved">Resolved</option>
+                                                    <option value="FalsePositive">False positive</option>
+                                                    <option value="AcceptedRisk">Accepted risk</option>
+                                                </select>
+                                            </label>
+                                            <label class="triage-note">
+                                                <span class="ledger-eyebrow">Justification @(NoteRequired ? "(required)" : "(optional)")</span>
+                                                <input @bind="triageNote" placeholder="Why this decision?" />
+                                            </label>
+                                        </div>
+                                        <div class="triage-actions">
+                                            @if (triageError is not null)
+                                            {
+                                                <span class="triage-err">@triageError</span>
+                                            }
+                                            <button class="btn-ghost" @onclick="CancelTriage" disabled="@saving">Cancel</button>
+                                            <button class="btn-seal" @onclick="() => SaveTriage(f)" disabled="@saving">@(saving ? "Saving…" : "Apply")</button>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        }
+    </section>
+}
+
+@code {
+    [Parameter] public string Key { get; set; } = "";
+
+    private const string TriageRoles = $"{RavelinRoles.Admin},{RavelinRoles.Analyst}";
+    private static readonly string[] filters = ["All", "Open", "Breached", "Resolved", "Suppressed"];
+
+    private ProjectDto? project;
+    private List<FindingDto> findings = [];
+    private bool loading = true;
+    private string? error;
+    private string activeFilter = "Open";
+
+    private Guid? editingId;
+    private string triageStatus = "Resolved";
+    private string triageNote = "";
+    private string? triageError;
+    private bool saving;
+
+    private bool NoteRequired => triageStatus is "FalsePositive" or "AcceptedRisk";
+
+    private (int open, int breached, int dueSoon, int resolved, double compliance)? summary;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        loading = true;
+        error = null;
+        try
+        {
+            var projects = await Http.GetFromJsonAsync<List<ProjectDto>>("api/projects") ?? [];
+            project = projects.FirstOrDefault(p => p.Key == Key);
+            findings = await Http.GetFromJsonAsync<List<FindingDto>>($"api/projects/{Key}/findings") ?? [];
+            ComputeSummary();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void ComputeSummary()
+    {
+        var open = findings.Count(f => f.Status == "Open");
+        var breached = findings.Count(f => f.SlaState == "Breached");
+        var dueSoon = findings.Count(f => f.SlaState == "DueSoon");
+        var resolved = findings.Count(f => f.Status == "Resolved");
+        var compliance = open == 0 ? 100 : Math.Round((double)(open - breached) / open * 100, 1);
+        summary = (open, breached, dueSoon, resolved, compliance);
+    }
+
+    private IEnumerable<FindingDto> Visible => activeFilter switch
+    {
+        "Open" => findings.Where(f => f.Status == "Open"),
+        "Breached" => findings.Where(f => f.SlaState == "Breached"),
+        "Resolved" => findings.Where(f => f.Status == "Resolved"),
+        "Suppressed" => findings.Where(f => f.Status is "FalsePositive" or "AcceptedRisk"),
+        _ => findings,
+    };
+
+    private void OpenTriage(FindingDto f)
+    {
+        editingId = f.Id;
+        triageStatus = f.Status == "Open" ? "Resolved" : "Open";
+        triageNote = "";
+        triageError = null;
+    }
+
+    private void CancelTriage()
+    {
+        editingId = null;
+        triageError = null;
+    }
+
+    private async Task SaveTriage(FindingDto f)
+    {
+        triageError = null;
+        if (NoteRequired && string.IsNullOrWhiteSpace(triageNote))
+        {
+            triageError = "A justification is required.";
+            return;
+        }
+        saving = true;
+        try
+        {
+            var resp = await Http.PostAsJsonAsync($"api/projects/{Key}/findings/{f.Id}/triage",
+                new TriageFindingRequest { Status = triageStatus, Note = string.IsNullOrWhiteSpace(triageNote) ? null : triageNote });
+            if (!resp.IsSuccessStatusCode)
+            {
+                triageError = await resp.Content.ReadAsStringAsync();
+                return;
+            }
+            editingId = null;
+            await Load();
+        }
+        catch (Exception ex)
+        {
+            triageError = ex.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private static string SevClass(string sev) => "sev-" + sev.ToLowerInvariant();
+
+    private static string Humanize(string status) => status switch
+    {
+        "FalsePositive" => "False positive",
+        "AcceptedRisk" => "Accepted risk",
+        _ => status,
+    };
+
+    private RenderFragment SlaCell(FindingDto f) => builder =>
+    {
+        if (f.SlaState == "NotApplicable")
+        {
+            builder.OpenElement(0, "span");
+            builder.AddAttribute(1, "class", "sla-na");
+            builder.AddContent(2, "—");
+            builder.CloseElement();
+            return;
+        }
+        var cls = "chip sla-" + f.SlaState.ToLowerInvariant();
+        var text = f.SlaState switch
+        {
+            "Breached" => f.DaysToSla is int d ? $"{Math.Abs(d)}d over" : "breached",
+            "DueSoon" => f.DaysToSla is int d ? $"{d}d left" : "due soon",
+            _ => f.DaysToSla is int d ? $"{d}d left" : "on track",
+        };
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", cls);
+        builder.AddContent(2, text);
+        builder.CloseElement();
+    };
+}

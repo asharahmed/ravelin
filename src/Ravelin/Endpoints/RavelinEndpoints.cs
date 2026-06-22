@@ -24,6 +24,7 @@ public static class RavelinEndpoints
         MapAdmin(app);
         MapReads(app);
         MapSla(app);
+        MapDashboard(app);
     }
 
     // --- Human auth: email/password -> JWT ----------------------------------------------
@@ -216,6 +217,100 @@ public static class RavelinEndpoints
             var now = DateTimeOffset.UtcNow;
             return Results.Ok(findings.Select(f => ToDto(f, now)).ToList());
         });
+    }
+
+    // --- Dashboard rollup (Stage 6) -----------------------------------------------------
+    private static void MapDashboard(WebApplication app)
+    {
+        app.MapGet("/api/dashboard", async (RavelinDbContext db) =>
+        {
+            var now = DateTimeOffset.UtcNow;
+
+            var projects = await db.Projects
+                .Select(p => new { p.Id, p.Key, p.Name })
+                .ToListAsync();
+
+            // Open findings drive every "current posture" number.
+            var open = await db.Findings
+                .Where(f => f.Status == FindingStatus.Open)
+                .Select(f => new { f.ProjectId, f.Severity, f.SlaDueAt })
+                .ToListAsync();
+
+            SlaState StateOf(DateTimeOffset? dueAt) =>
+                SlaEvaluator.Evaluate(FindingStatus.Open, dueAt, now, SlaEvaluator.DefaultDueSoonWindow).State;
+
+            var perProject = projects.Select(p =>
+            {
+                var items = open.Where(f => f.ProjectId == p.Id).ToList();
+                var breached = items.Count(f => StateOf(f.SlaDueAt) == SlaState.Breached);
+                var dueSoon = items.Count(f => StateOf(f.SlaDueAt) == SlaState.DueSoon);
+                var total = items.Count;
+                return new ProjectPostureDto
+                {
+                    Key = p.Key,
+                    Name = p.Name,
+                    Open = total,
+                    Breached = breached,
+                    DueSoon = dueSoon,
+                    CompliancePercent = total == 0 ? 100 : Math.Round((double)(total - breached) / total * 100, 1),
+                };
+            })
+            .OrderByDescending(p => p.Breached)
+            .ThenByDescending(p => p.Open)
+            .ToList();
+
+            var totalOpen = open.Count;
+            var totalBreached = open.Count(f => StateOf(f.SlaDueAt) == SlaState.Breached);
+            var totalDueSoon = open.Count(f => StateOf(f.SlaDueAt) == SlaState.DueSoon);
+
+            var severity = new SeverityCountsDto
+            {
+                Critical = open.Count(f => f.Severity == Severity.Critical),
+                High = open.Count(f => f.Severity == Severity.High),
+                Medium = open.Count(f => f.Severity == Severity.Medium),
+                Low = open.Count(f => f.Severity == Severity.Low),
+                Unknown = open.Count(f => f.Severity == Severity.Unknown),
+            };
+
+            // 8-week opened-vs-resolved flow, bucketed by week from the window start.
+            const int weeks = 8;
+            var windowStart = now.Date.AddDays(-7 * (weeks - 1) - (int)now.DayOfWeek);
+            var detected = await db.Findings
+                .Where(f => f.FirstDetectedAt >= windowStart)
+                .Select(f => f.FirstDetectedAt)
+                .ToListAsync();
+            var resolvedAt = await db.Findings
+                .Where(f => f.ResolvedAt != null && f.ResolvedAt >= windowStart)
+                .Select(f => f.ResolvedAt!.Value)
+                .ToListAsync();
+
+            var trend = new List<TrendPointDto>();
+            for (var w = 0; w < weeks; w++)
+            {
+                var start = windowStart.AddDays(7 * w);
+                var end = start.AddDays(7);
+                trend.Add(new TrendPointDto
+                {
+                    WeekStart = new DateTimeOffset(start, TimeSpan.Zero),
+                    Opened = detected.Count(d => d >= start && d < end),
+                    Resolved = resolvedAt.Count(r => r >= start && r < end),
+                });
+            }
+
+            return Results.Ok(new DashboardDto
+            {
+                ProjectCount = projects.Count,
+                TotalOpen = totalOpen,
+                Breached = totalBreached,
+                DueSoon = totalDueSoon,
+                OnTrack = totalOpen - totalBreached - totalDueSoon,
+                CompliancePercent = totalOpen == 0 ? 100 : Math.Round((double)(totalOpen - totalBreached) / totalOpen * 100, 1),
+                OpenBySeverity = severity,
+                Projects = perProject,
+                Trend = trend,
+            });
+        })
+        .RequireAuthorization();
     }
 
     // --- SLA engine + triage (Stage 5) --------------------------------------------------

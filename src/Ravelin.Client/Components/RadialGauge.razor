@@ -1,0 +1,29 @@
+@inject IJSRuntime JS
+
+<div class="gauge @LevelClass" style="--p:@Percent.ToString(System.Globalization.CultureInfo.InvariantCulture);">
+    <svg viewBox="0 0 120 120" class="gauge-svg" role="img" aria-label="@Label @Percent.ToString("F0")%">
+        <circle class="gauge-track" cx="60" cy="60" r="52" />
+        <circle class="gauge-arc" cx="60" cy="60" r="52" pathLength="100" />
+    </svg>
+    <div class="gauge-center">
+        <div class="gauge-value ledger-num"><span @ref="numRef">@Percent.ToString("F0")</span><span class="gauge-pct">%</span></div>
+        <div class="gauge-label ledger-eyebrow">@Label</div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public double Percent { get; set; }
+    [Parameter] public string Label { get; set; } = "compliant";
+
+    private ElementReference numRef;
+
+    private string LevelClass => Percent >= 90 ? "gauge-good" : Percent >= 70 ? "gauge-warn" : "gauge-bad";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("ravelinCountUp", numRef, Percent, 1300, 0);
+        }
+    }
+}

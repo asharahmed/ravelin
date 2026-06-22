@@ -1,0 +1,84 @@
+.trend {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.trend-legend {
+    display: flex;
+    gap: 1.1rem;
+}
+
+.trend-key {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+}
+.trend-key::before {
+    content: "";
+    width: 0.85em;
+    height: 0.85em;
+    border-radius: 3px;
+}
+.trend-key-opened::before { background: var(--brand); }
+.trend-key-resolved::before { background: var(--sla-ontrack); }
+
+.trend-svg {
+    width: 100%;
+    height: clamp(120px, 22vh, 180px);
+    overflow: visible;
+}
+
+.trend-baseline {
+    stroke: var(--line);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+
+.trend-stop-top { stop-color: var(--brand); stop-opacity: 0.22; }
+.trend-stop-bottom { stop-color: var(--brand); stop-opacity: 0; }
+
+.trend-area {
+    animation: trend-fade 1s ease-out both;
+}
+
+.trend-line {
+    fill: none;
+    stroke-width: 2.5;
+    vector-effect: non-scaling-stroke;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+    animation: trend-draw 1.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.trend-line-opened { stroke: var(--brand); }
+.trend-line-resolved { stroke: var(--sla-ontrack); animation-delay: 0.15s; }
+
+.trend-dot { stroke: var(--surface-raised); stroke-width: 2; animation: trend-fade 0.6s ease-out 1.2s both; }
+.trend-dot-opened { fill: var(--brand); }
+.trend-dot-resolved { fill: var(--sla-ontrack); }
+
+.trend-axis {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+}
+
+.trend-empty {
+    color: var(--ink-faint);
+    font-size: 0.88rem;
+    padding: 1.5rem 0;
+    text-align: center;
+}
+
+@keyframes trend-draw { to { stroke-dashoffset: 0; } }
+@keyframes trend-fade { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .trend-line, .trend-area, .trend-dot { animation: none; stroke-dashoffset: 0; opacity: 1; }
+}

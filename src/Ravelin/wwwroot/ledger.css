@@ -1,0 +1,165 @@
+/* ============================================================================
+   Ravelin — "Compliance Ledger" design system
+   Editorial, light-first, semantic severity colour. Dark-mode via data-bs-theme.
+   Tokens here; component layout lives in scoped .razor.css files.
+   ============================================================================ */
+
+:root {
+    --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+    --font-body: 'Archivo', -apple-system, BlinkMacSystemFont, sans-serif;
+
+    /* Warm paper + cool slate ink — the audit-report base. */
+    --paper: oklch(0.992 0.004 95);
+    --surface: oklch(0.985 0.006 95);
+    --surface-raised: oklch(1 0 0);
+    --ink: oklch(0.24 0.024 268);
+    --ink-soft: oklch(0.46 0.02 268);
+    --ink-faint: oklch(0.60 0.016 268);
+    --line: oklch(0.90 0.008 268);
+    --line-strong: oklch(0.82 0.01 268);
+
+    /* The "seal" — a single confident oxblood accent. */
+    --brand: oklch(0.46 0.13 22);
+    --brand-soft: oklch(0.56 0.12 22);
+    --brand-tint: oklch(0.96 0.02 22);
+
+    /* Semantic severity scale (colour carries meaning, not decoration). */
+    --sev-critical: oklch(0.54 0.20 25);
+    --sev-high: oklch(0.65 0.17 52);
+    --sev-medium: oklch(0.76 0.13 82);
+    --sev-low: oklch(0.62 0.07 242);
+    --sev-unknown: oklch(0.70 0.01 268);
+
+    /* SLA states. */
+    --sla-ontrack: oklch(0.60 0.13 158);
+    --sla-duesoon: oklch(0.75 0.14 76);
+    --sla-breached: oklch(0.54 0.20 25);
+
+    --shadow-sm: 0 1px 2px oklch(0.24 0.024 268 / 0.05), 0 1px 1px oklch(0.24 0.024 268 / 0.04);
+    --shadow-md: 0 2px 4px oklch(0.24 0.024 268 / 0.04), 0 12px 28px oklch(0.24 0.024 268 / 0.07);
+    --radius: 14px;
+    --radius-sm: 9px;
+}
+
+[data-bs-theme="dark"] {
+    --paper: oklch(0.185 0.016 268);
+    --surface: oklch(0.215 0.018 268);
+    --surface-raised: oklch(0.245 0.02 268);
+    --ink: oklch(0.95 0.01 95);
+    --ink-soft: oklch(0.80 0.014 268);
+    --ink-faint: oklch(0.64 0.014 268);
+    --line: oklch(0.32 0.02 268);
+    --line-strong: oklch(0.40 0.022 268);
+
+    --brand: oklch(0.72 0.13 26);
+    --brand-soft: oklch(0.66 0.13 24);
+    --brand-tint: oklch(0.30 0.05 22);
+
+    --sev-critical: oklch(0.66 0.19 27);
+    --sev-high: oklch(0.74 0.15 55);
+    --sev-medium: oklch(0.82 0.13 85);
+    --sev-low: oklch(0.70 0.09 245);
+    --sev-unknown: oklch(0.62 0.012 268);
+
+    --sla-ontrack: oklch(0.70 0.14 158);
+    --sla-duesoon: oklch(0.80 0.14 80);
+    --sla-breached: oklch(0.66 0.19 27);
+
+    --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.3);
+    --shadow-md: 0 2px 4px oklch(0 0 0 / 0.25), 0 14px 32px oklch(0 0 0 / 0.40);
+}
+
+body {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-feature-settings: "ss01", "cv01";
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ---- Shared editorial primitives ------------------------------------------ */
+
+.ledger-eyebrow {
+    font-family: var(--font-body);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+}
+
+.ledger-display {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    line-height: 1.05;
+}
+
+.ledger-num {
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1;
+    letter-spacing: -0.02em;
+}
+
+.ledger-rule {
+    border: 0;
+    border-top: 1px solid var(--line);
+    margin: 0;
+}
+
+/* Panels: hairline-defined, barely-raised — not generic drop-shadow cards. */
+.ledger-panel {
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Severity + SLA chips. */
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 0.18em 0.6em;
+    border-radius: 999px;
+    border: 1px solid color-mix(in oklch, var(--chip-color) 35%, transparent);
+    color: color-mix(in oklch, var(--chip-color) 78%, var(--ink));
+    background: color-mix(in oklch, var(--chip-color) 12%, var(--surface-raised));
+    white-space: nowrap;
+}
+.chip::before {
+    content: "";
+    width: 0.5em;
+    height: 0.5em;
+    border-radius: 50%;
+    background: var(--chip-color);
+}
+
+.sev-critical { --chip-color: var(--sev-critical); }
+.sev-high { --chip-color: var(--sev-high); }
+.sev-medium { --chip-color: var(--sev-medium); }
+.sev-low { --chip-color: var(--sev-low); }
+.sev-unknown { --chip-color: var(--sev-unknown); }
+.sla-ontrack { --chip-color: var(--sla-ontrack); }
+.sla-duesoon { --chip-color: var(--sla-duesoon); }
+.sla-breached { --chip-color: var(--sla-breached); }
+.sla-notapplicable { --chip-color: var(--sev-unknown); }
+
+/* Staggered page-load reveal. */
+@keyframes ledger-rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+}
+.ledger-rise {
+    animation: ledger-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ledger-rise { animation: none; }
+}

@@ -1,0 +1,66 @@
+@using System.Globalization
+@using Ravelin.Shared.Contracts
+
+<div class="trend">
+    <div class="trend-legend">
+        <span class="trend-key trend-key-opened">Opened</span>
+        <span class="trend-key trend-key-resolved">Resolved</span>
+    </div>
+
+    @if (HasData)
+    {
+        <svg viewBox="0 0 @W @H" class="trend-svg" preserveAspectRatio="none" role="img"
+             aria-label="Findings opened versus resolved over the last @Points.Count weeks">
+            <defs>
+                <linearGradient id="trend-open-fill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" class="trend-stop-top" />
+                    <stop offset="100%" class="trend-stop-bottom" />
+                </linearGradient>
+            </defs>
+            <line class="trend-baseline" x1="0" y1="@BaseY.ToString(Inv)" x2="@W" y2="@BaseY.ToString(Inv)" />
+            <path class="trend-area" d="@OpenedArea" fill="url(#trend-open-fill)" />
+            <path class="trend-line trend-line-opened" d="@OpenedLine" />
+            <path class="trend-line trend-line-resolved" d="@ResolvedLine" />
+            <circle class="trend-dot trend-dot-opened" cx="@LastX.ToString(Inv)" cy="@LastOpenedY.ToString(Inv)" r="3.2" />
+            <circle class="trend-dot trend-dot-resolved" cx="@LastX.ToString(Inv)" cy="@LastResolvedY.ToString(Inv)" r="3.2" />
+        </svg>
+        <div class="trend-axis">
+            <span>@Points[0].WeekStart.ToString("MMM d")</span>
+            <span>this week</span>
+        </div>
+    }
+    else
+    {
+        <p class="trend-empty">No scan activity in this window yet.</p>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<TrendPointDto> Points { get; set; } = [];
+
+    private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
+    private const double W = 320, H = 120, PadT = 14, PadB = 10, PadX = 6;
+
+    private bool HasData => Points.Count >= 2 && Points.Any(p => p.Opened > 0 || p.Resolved > 0);
+    private double Max => Math.Max(1, Points.Max(p => Math.Max(p.Opened, p.Resolved)));
+    private double BaseY => H - PadB;
+
+    private double X(int i) => PadX + i * ((W - 2 * PadX) / (Points.Count - 1));
+    private double Y(int v) => PadT + (1 - v / Max) * (H - PadT - PadB);
+
+    private string OpenedLine => Line(p => p.Opened);
+    private string ResolvedLine => Line(p => p.Resolved);
+
+    private string Line(Func<TrendPointDto, int> sel)
+    {
+        var pts = Points.Select((p, i) => $"{X(i).ToString("F1", Inv)},{Y(sel(p)).ToString("F1", Inv)}");
+        return "M" + string.Join(" L", pts);
+    }
+
+    private string OpenedArea =>
+        $"{OpenedLine} L{LastX.ToString("F1", Inv)},{BaseY.ToString("F1", Inv)} L{X(0).ToString("F1", Inv)},{BaseY.ToString("F1", Inv)} Z";
+
+    private double LastX => X(Points.Count - 1);
+    private double LastOpenedY => Y(Points[^1].Opened);
+    private double LastResolvedY => Y(Points[^1].Resolved);
+}

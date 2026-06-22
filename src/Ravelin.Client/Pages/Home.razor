@@ -1,50 +1,67 @@
 @page "/"
-@using Ravelin.Shared
 @inject HttpClient Http
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthState
 
-<PageTitle>Ravelin</PageTitle>
+<PageTitle>Ravelin — vulnerability SLA &amp; compliance tracker</PageTitle>
 
-<h1>Ravelin</h1>
-<p class="lead">Vulnerability SLA &amp; compliance tracker — hold the line on security debt.</p>
+<div class="landing">
+    <div class="landing-inner ledger-rise">
+        <div class="ledger-eyebrow">Vulnerability SLA &amp; compliance</div>
+        <h1 class="ledger-display landing-title">Hold the line on<br />security debt.</h1>
+        <p class="landing-lead">
+            Ravelin turns dependency-scan results into an accountability layer: severity-based
+            remediation SLAs, posture trends over time, and audit-ready compliance — so nothing
+            slips past its deadline unnoticed.
+        </p>
 
-<h2>Service status</h2>
+        <div class="landing-cta">
+            <a class="cta-primary" href="login">Sign in</a>
+            <span class="cta-status">
+                <span class="status-dot @(apiUp ? "up" : "down")"></span>
+                @(apiUp ? "API operational" : "checking…")
+            </span>
+        </div>
 
-@if (info is null && error is null)
-{
-    <p><em>Contacting API…</em></p>
-}
-else if (error is not null)
-{
-    <div class="alert alert-danger" role="alert">
-        Could not reach the API: @error
+        <dl class="landing-points">
+            <div>
+                <dt class="ledger-display">SLAs that bite</dt>
+                <dd>Every finding inherits a severity-based deadline. Breaches surface immediately.</dd>
+            </div>
+            <div>
+                <dt class="ledger-display">Posture over time</dt>
+                <dd>Opened-vs-resolved trends and compliance %, per project and across the org.</dd>
+            </div>
+            <div>
+                <dt class="ledger-display">Triage with a trail</dt>
+                <dd>False-positive and accepted-risk decisions require a justification — audit-ready.</dd>
+            </div>
+        </dl>
     </div>
-}
-else
-{
-    <table class="table w-auto">
-        <tbody>
-            <tr><th scope="row">Name</th><td>@info!.Name</td></tr>
-            <tr><th scope="row">Description</th><td>@info.Description</td></tr>
-            <tr><th scope="row">Version</th><td>@info.Version</td></tr>
-            <tr><th scope="row">Environment</th><td>@info.Environment</td></tr>
-        </tbody>
-    </table>
-    <p class="text-success">✔ Client, API, and shared contract are wired end-to-end.</p>
-}
+</div>
 
 @code {
-    private ApiInfo? info;
-    private string? error;
+    private bool apiUp;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            info = await Http.GetFromJsonAsync<ApiInfo>("api/info");
+            var info = await Http.GetFromJsonAsync<ApiInfo>("api/info");
+            apiUp = info is not null;
         }
-        catch (Exception ex)
+        catch { apiUp = false; }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
         {
-            error = ex.Message;
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            if (auth.User.Identity?.IsAuthenticated == true)
+            {
+                Nav.NavigateTo("dashboard", replace: true);
+            }
         }
     }
 }

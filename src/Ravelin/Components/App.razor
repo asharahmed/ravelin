@@ -25,11 +25,32 @@
                     return window.ravelinTheme.set(window.ravelinTheme.get() === 'dark' ? 'light' : 'dark');
                 }
             };
+            // Animated count-up for dashboard metrics (honours reduced-motion).
+            window.ravelinCountUp = function (el, target, duration, decimals) {
+                if (!el) return;
+                target = Number(target) || 0; duration = duration || 1100; decimals = decimals || 0;
+                if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    el.textContent = target.toFixed(decimals); return;
+                }
+                var start = null;
+                function frame(t) {
+                    if (start === null) start = t;
+                    var p = Math.min((t - start) / duration, 1);
+                    var eased = 1 - Math.pow(1 - p, 4); // ease-out-quart
+                    el.textContent = (target * eased).toFixed(decimals);
+                    if (p < 1) requestAnimationFrame(frame); else el.textContent = target.toFixed(decimals);
+                }
+                requestAnimationFrame(frame);
+            };
         })();
     </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&display=swap" />
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
     <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="stylesheet" href="@Assets["ledger.css"]" />
     <link rel="stylesheet" href="@Assets["Ravelin.styles.css"]" />
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
