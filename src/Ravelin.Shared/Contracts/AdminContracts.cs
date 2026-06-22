@@ -51,3 +51,13 @@ public record SetUserRoleRequest
 {
     public required string Role { get; init; }
 }
+
+/// <summary>One entry in the audit trail.</summary>
+public record AuditEventDto
+{
+    public required DateTimeOffset At { get; init; }
+    public required string Actor { get; init; }
+    public required string Action { get; init; }
+    public string? Target { get; init; }
+    public string? Detail { get; init; }
+}

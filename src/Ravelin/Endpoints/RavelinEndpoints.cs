@@ -32,7 +32,7 @@ public static class RavelinEndpoints
     private static void MapAuth(WebApplication app)
     {
         app.MapPost("/api/auth/login", async (
-            LoginRequest request, UserManager<IdentityUser> users, JwtTokenService jwt) =>
+            LoginRequest request, UserManager<IdentityUser> users, JwtTokenService jwt, AuditService audit) =>
         {
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             {
@@ -54,6 +54,7 @@ public static class RavelinEndpoints
             }
 
             await users.ResetAccessFailedCountAsync(user);
+            await audit.RecordAsync(user.Email!, "auth.login");
 
             var roles = await users.GetRolesAsync(user);
             var (token, expiresAt) = jwt.CreateToken(user.Id, user.Email!, roles);
@@ -72,7 +73,7 @@ public static class RavelinEndpoints
         // Self-service signup. New accounts are ALWAYS read-only Viewers — registration
         // can never grant Analyst/Admin; those are assigned out-of-band by an administrator.
         app.MapPost("/api/auth/register", async (
-            RegisterRequest request, UserManager<IdentityUser> users, JwtTokenService jwt) =>
+            RegisterRequest request, UserManager<IdentityUser> users, JwtTokenService jwt, AuditService audit) =>
         {
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             {
@@ -88,6 +89,7 @@ public static class RavelinEndpoints
             }
 
             await users.AddToRoleAsync(user, RavelinRoles.Viewer);
+            await audit.RecordAsync(user.Email!, "auth.register", user.Email, "self-service Viewer");
 
             var roles = await users.GetRolesAsync(user);
             var (token, expiresAt) = jwt.CreateToken(user.Id, user.Email!, roles);
@@ -239,7 +241,8 @@ public static class RavelinEndpoints
             .RequireAuthorization(policy => policy.RequireRole(RavelinRoles.Admin))
             .DisableAntiforgery();
 
-        admin.MapPost("/projects", async (CreateProjectRequest req, RavelinDbContext db) =>
+        admin.MapPost("/projects", async (CreateProjectRequest req, RavelinDbContext db,
+            AuditService audit, ClaimsPrincipal actor) =>
         {
             if (string.IsNullOrWhiteSpace(req.Key) || string.IsNullOrWhiteSpace(req.Name))
             {
@@ -254,12 +257,14 @@ public static class RavelinEndpoints
             var project = new Project { Key = req.Key, Name = req.Name, RepositoryUrl = req.RepositoryUrl };
             db.Projects.Add(project);
             await db.SaveChangesAsync();
+            await audit.RecordAsync(ActorOf(actor), "project.create", project.Key, project.Name);
 
             return Results.Created($"/api/projects/{project.Key}", ToDto(project, 0));
         });
 
         admin.MapPost("/projects/{key}/api-keys", async (
-            string key, CreateApiKeyRequest req, RavelinDbContext db, ApiKeyService apiKeys) =>
+            string key, CreateApiKeyRequest req, RavelinDbContext db, ApiKeyService apiKeys,
+            AuditService audit, ClaimsPrincipal actor) =>
         {
             if (string.IsNullOrWhiteSpace(req.Name))
             {
@@ -273,6 +278,7 @@ public static class RavelinEndpoints
             }
 
             var (entity, rawKey) = await apiKeys.CreateAsync(project.Id, req.Name);
+            await audit.RecordAsync(ActorOf(actor), "apikey.create", key, $"{req.Name} ({entity.KeyPrefix}…)");
             return Results.Ok(new CreateApiKeyResponse
             {
                 Id = entity.Id,
@@ -312,7 +318,8 @@ public static class RavelinEndpoints
 
         // Revoke an API key (idempotent).
         admin.MapDelete("/projects/{key}/api-keys/{id:guid}", async (
-            string key, Guid id, RavelinDbContext db, ApiKeyService apiKeys) =>
+            string key, Guid id, RavelinDbContext db, ApiKeyService apiKeys,
+            AuditService audit, ClaimsPrincipal actor) =>
         {
             var project = await db.Projects.FirstOrDefaultAsync(p => p.Key == key);
             if (project is null)
@@ -321,6 +328,7 @@ public static class RavelinEndpoints
             }
 
             var revoked = await apiKeys.RevokeAsync(project.Id, id);
+            if (revoked) await audit.RecordAsync(ActorOf(actor), "apikey.revoke", key, id.ToString());
             return revoked ? Results.NoContent() : Results.NotFound($"Key '{id}' not found.");
         });
 
@@ -339,7 +347,8 @@ public static class RavelinEndpoints
 
         // Change a user's role. Guards against removing the last administrator.
         admin.MapPut("/users/{id}/role", async (
-            string id, SetUserRoleRequest req, UserManager<IdentityUser> users) =>
+            string id, SetUserRoleRequest req, UserManager<IdentityUser> users,
+            AuditService audit, ClaimsPrincipal actor) =>
         {
             if (!RavelinRoles.All.Contains(req.Role))
             {
@@ -367,8 +376,27 @@ public static class RavelinEndpoints
                 await users.RemoveFromRolesAsync(user, current);
             }
             await users.AddToRoleAsync(user, req.Role);
+            await audit.RecordAsync(ActorOf(actor), "user.role", user.Email, $"{current.FirstOrDefault() ?? "none"} -> {req.Role}");
 
             return Results.Ok(new UserDto { Id = user.Id, Email = user.Email ?? "", Role = req.Role });
+        });
+
+        // Audit trail (newest first) — who did what.
+        admin.MapGet("/audit", async (RavelinDbContext db) =>
+        {
+            var events = await db.AuditEvents
+                .OrderByDescending(e => e.At)
+                .Take(200)
+                .Select(e => new AuditEventDto
+                {
+                    At = e.At,
+                    Actor = e.Actor,
+                    Action = e.Action,
+                    Target = e.Target,
+                    Detail = e.Detail,
+                })
+                .ToListAsync();
+            return Results.Ok(events);
         });
     }
 
@@ -561,7 +589,8 @@ public static class RavelinEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPut("/api/sla-policies", async (UpdateSlaPoliciesRequest req, RavelinDbContext db) =>
+        app.MapPut("/api/sla-policies", async (UpdateSlaPoliciesRequest req, RavelinDbContext db,
+            AuditService audit, ClaimsPrincipal actor) =>
         {
             if (req.Policies is null || req.Policies.Count == 0)
             {
@@ -601,6 +630,8 @@ public static class RavelinEndpoints
             }
 
             await db.SaveChangesAsync();
+            await audit.RecordAsync(ActorOf(actor), "sla.update", null,
+                string.Join(", ", policies.OrderByDescending(p => p.Severity).Select(p => $"{p.Severity}:{p.RemediationDays}d")));
 
             return Results.Ok(policies
                 .OrderByDescending(p => p.Severity)
@@ -612,7 +643,8 @@ public static class RavelinEndpoints
 
         // Triage a finding (Analyst or Admin). Viewer is read-only.
         app.MapPost("/api/projects/{key}/findings/{id:guid}/triage", async (
-            string key, Guid id, TriageFindingRequest req, RavelinDbContext db) =>
+            string key, Guid id, TriageFindingRequest req, RavelinDbContext db,
+            AuditService audit, ClaimsPrincipal actor) =>
         {
             if (!Enum.TryParse<FindingStatus>(req.Status, ignoreCase: true, out var target))
             {
@@ -634,6 +666,7 @@ public static class RavelinEndpoints
             }
 
             await db.SaveChangesAsync();
+            await audit.RecordAsync(ActorOf(actor), "finding.triage", finding.VulnerabilityId, $"{key}: {target}");
             return Results.Ok(ToDto(finding, DateTimeOffset.UtcNow));
         })
         .RequireAuthorization(policy => policy.RequireRole(RavelinRoles.Admin, RavelinRoles.Analyst))
@@ -683,6 +716,10 @@ public static class RavelinEndpoints
 
     // --- Helpers ------------------------------------------------------------------------
     private static Severity ParseSeverity(string? value) => SeverityMap.Parse(value);
+
+    /// <summary>The acting user's email for audit records (NameClaimType is "email").</summary>
+    private static string ActorOf(ClaimsPrincipal user) =>
+        user.Identity?.Name ?? user.FindFirstValue("email") ?? "unknown";
 
     private static ProjectDto ToDto(Project p, int openFindings) => new()
     {

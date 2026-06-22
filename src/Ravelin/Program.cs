@@ -2,6 +2,7 @@ using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using Ravelin.Auth;
@@ -101,6 +102,12 @@ var app = builder.Build();
 // whole app down — log and continue; seeding is idempotent and retried on next start.
 try
 {
+    // Apply any pending EF migrations on boot so a deploy is self-contained (no out-of-band
+    // migration step). Idempotent; EF takes a SQL migration lock so concurrent instances are safe.
+    using (var scope = app.Services.CreateScope())
+    {
+        await scope.ServiceProvider.GetRequiredService<RavelinDbContext>().Database.MigrateAsync();
+    }
     await IdentitySeeder.SeedAsync(app.Services, app.Configuration);
     // Optional: seed realistic demo data for the public showcase (gated by Seed:DemoData).
     await DemoDataSeeder.SeedAsync(app.Services, app.Configuration);

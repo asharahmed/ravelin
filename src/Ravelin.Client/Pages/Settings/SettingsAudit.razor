@@ -1,0 +1,59 @@
+@page "/settings/audit"
+@attribute [Authorize(Roles = RavelinRoles.Admin)]
+@inject HttpClient Http
+
+<PageTitle>Audit log — Ravelin</PageTitle>
+
+<SettingsShell Title="Audit log"
+               Subtitle="Security-relevant actions, newest first: sign-ins, sign-ups, role changes, API-key lifecycle, SLA-policy edits, and triage. Append-only — the trail isn't editable from the app.">
+
+    @if (loading)
+    {
+        <div class="s-card"><span class="skeleton" style="display:block;height:1.4rem;width:55%"></span></div>
+    }
+    else if (error is not null)
+    {
+        <div class="s-error">@error</div>
+    }
+    else if (events.Count == 0)
+    {
+        <div class="s-empty">
+            <h3>Nothing recorded yet</h3>
+            <p>As people sign in, roles change, keys are issued or revoked, and findings are triaged, those actions appear here.</p>
+        </div>
+    }
+    else
+    {
+        <div class="s-card">
+            <table class="s-table">
+                <thead><tr><th style="width:9rem">When</th><th>Actor</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead>
+                <tbody>
+                    @foreach (var e in events)
+                    {
+                        <tr>
+                            <td class="s-muted">@e.At.ToLocalTime().ToString("MMM d, HH:mm")</td>
+                            <td>@e.Actor</td>
+                            <td><span class="audit-action">@e.Action</span></td>
+                            <td class="s-mono s-muted">@e.Target</td>
+                            <td class="s-muted">@e.Detail</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <p class="s-card-meta" style="margin-top:0.6rem">Showing the most recent @events.Count event@(events.Count == 1 ? "" : "s").</p>
+    }
+</SettingsShell>
+
+@code {
+    private List<AuditEventDto> events = new();
+    private bool loading = true;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { events = await Http.GetFromJsonAsync<List<AuditEventDto>>("api/admin/audit") ?? new(); }
+        catch (Exception ex) { error = $"Could not load the audit log: {ex.Message}"; }
+        finally { loading = false; }
+    }
+}
