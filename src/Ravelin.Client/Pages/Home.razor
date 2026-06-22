@@ -11,6 +11,11 @@
 
     @* ───────── Hero ───────── *@
     <section class="hero">
+        <div class="hero-bg" aria-hidden="true">
+            <span class="hero-orb hero-orb--1"></span>
+            <span class="hero-orb hero-orb--2"></span>
+            <span class="hero-grid" data-parallax="0.04"></span>
+        </div>
         <div class="hero-copy ledger-rise">
             <span class="hero-eyebrow">
                 <span class="he-dot"></span>Vulnerability SLA &amp; compliance
@@ -42,7 +47,9 @@
         </div>
 
         <div class="hero-viz ledger-rise" style="animation-delay:.12s">
-            <Globe />
+            <div class="hero-viz-inner" data-parallax="-0.05">
+                <Globe />
+            </div>
         </div>
     </section>
 
@@ -60,7 +67,7 @@
             {
                 <div class="win @w.Cls">
                     <span class="win-sev">@w.Sev</span>
-                    <span class="win-days">@w.Days<small>days</small></span>
+                    <span class="win-days"><span data-count="@w.Days">@w.Days</span><small>days</small></span>
                 </div>
             }
         </div>
@@ -98,7 +105,7 @@
             <h2 class="ledger-display sec-title">Your whole posture, on one page.</h2>
         </header>
 
-        <div class="pc ledger-panel">
+        <div class="pc ledger-panel" data-tilt>
             <div class="pc-chrome">
                 <span class="pc-dot"></span><span class="pc-dot"></span><span class="pc-dot"></span>
                 <span class="pc-route">ravelin / posture</span>
@@ -278,6 +285,8 @@
                 return;
             }
             try { await JS.InvokeVoidAsync("ravelinReveal"); } catch { }
+            try { await JS.InvokeVoidAsync("ravelinParallax"); } catch { }
+            try { await JS.InvokeVoidAsync("ravelinTilt"); } catch { }
         }
     }
 }

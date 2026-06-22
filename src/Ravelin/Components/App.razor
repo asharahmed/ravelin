@@ -54,19 +54,64 @@
                 }
                 requestAnimationFrame(frame);
             };
+            var prefersReduce = function () { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; };
+            // Count any [data-count] numbers inside a freshly-revealed element.
+            function countWithin(scope) {
+                if (!scope.querySelectorAll) return;
+                scope.querySelectorAll('[data-count]').forEach(function (n) {
+                    if (n.dataset.counted) return; n.dataset.counted = '1';
+                    window.ravelinCountUp(n, parseFloat(n.dataset.count) || 0, 1100, parseInt(n.dataset.decimals) || 0);
+                });
+            }
             // Scroll-reveal: fade/slide elements in as they enter the viewport (once).
             window.ravelinReveal = function () {
                 var els = document.querySelectorAll('.reveal:not(.in)');
-                if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) {
-                    els.forEach(function (e) { e.classList.add('in'); });
+                if (prefersReduce() || !('IntersectionObserver' in window)) {
+                    els.forEach(function (e) { e.classList.add('in'); countWithin(e); });
                     return;
                 }
                 var io = new IntersectionObserver(function (entries) {
                     entries.forEach(function (en) {
-                        if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+                        if (en.isIntersecting) { en.target.classList.add('in'); countWithin(en.target); io.unobserve(en.target); }
                     });
                 }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
                 els.forEach(function (e) { io.observe(e); });
+            };
+            // Lightweight scroll parallax for [data-parallax] (speed factor, viewport-centred).
+            window.ravelinParallax = function () {
+                if (prefersReduce()) return;
+                var els = Array.prototype.map.call(document.querySelectorAll('[data-parallax]'), function (e) {
+                    return { el: e, s: parseFloat(e.dataset.parallax) || 0 };
+                });
+                if (!els.length) return;
+                var vh = window.innerHeight, ticking = false;
+                function update() {
+                    var mid = window.scrollY + vh / 2;
+                    els.forEach(function (o) {
+                        var r = o.el.getBoundingClientRect();
+                        var center = r.top + window.scrollY + r.height / 2;
+                        o.el.style.transform = 'translate3d(0,' + ((center - mid) * o.s).toFixed(1) + 'px,0)';
+                    });
+                    ticking = false;
+                }
+                function onScroll() { if (!ticking) { ticking = true; requestAnimationFrame(update); } }
+                window.addEventListener('scroll', onScroll, { passive: true });
+                window.addEventListener('resize', function () { vh = window.innerHeight; onScroll(); }, { passive: true });
+                update();
+            };
+            // Subtle pointer tilt for [data-tilt] cards (mouse only).
+            window.ravelinTilt = function () {
+                if (prefersReduce()) return;
+                document.querySelectorAll('[data-tilt]').forEach(function (card) {
+                    if (card.dataset.tiltBound) return; card.dataset.tiltBound = '1';
+                    card.addEventListener('pointermove', function (e) {
+                        if (e.pointerType === 'touch') return;
+                        var r = card.getBoundingClientRect();
+                        var px = (e.clientX - r.left) / r.width - 0.5, py = (e.clientY - r.top) / r.height - 0.5;
+                        card.style.transform = 'perspective(1500px) rotateX(' + (-py * 2.3).toFixed(2) + 'deg) rotateY(' + (px * 3).toFixed(2) + 'deg)';
+                    });
+                    card.addEventListener('pointerleave', function () { card.style.transform = ''; });
+                });
             };
         })();
     </script>
