@@ -25,6 +25,18 @@
                     return window.ravelinTheme.set(window.ravelinTheme.get() === 'dark' ? 'light' : 'dark');
                 }
             };
+            // Trigger a client-side file download (used for CSV export).
+            window.ravelinDownload = function (filename, mime, content) {
+                try {
+                    var blob = new Blob([content], { type: mime || 'text/plain' });
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url; a.download = filename;
+                    document.body.appendChild(a); a.click();
+                    document.body.removeChild(a);
+                    setTimeout(function () { URL.revokeObjectURL(url); }, 0);
+                } catch (e) { console.error('download failed', e); }
+            };
             // Animated count-up for dashboard metrics (honours reduced-motion).
             window.ravelinCountUp = function (el, target, duration, decimals) {
                 if (!el) return;
@@ -44,21 +56,26 @@
             };
         })();
     </script>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&display=swap" />
+    <link rel="preload" as="font" type="font/woff2" href="fonts/zilla-slab-600.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="fonts/hanken-grotesk-400.woff2" crossorigin />
+    <link rel="stylesheet" href="@Assets["fonts.css"]" />
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["ledger.css"]" />
     <link rel="stylesheet" href="@Assets["Ravelin.styles.css"]" />
     <ImportMap />
-    <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+    <meta name="theme-color" content="#7c2218" />
     <HeadOutlet @rendermode="@(new InteractiveWebAssemblyRenderMode(prerender: false))" />
 </head>
 
 <body>
     <Routes @rendermode="@(new InteractiveWebAssemblyRenderMode(prerender: false))" />
+    <script>window.ravelinGlobeMask = '@Assets["earth-mask.png"]';</script>
+    <script src="@Assets["globe.js"]"></script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 

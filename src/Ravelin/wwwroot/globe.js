@@ -105,7 +105,9 @@
                 hotspots = pickHotspots(land);
             } catch (e) { /* keep the fallback */ }
         };
-        maskImg.src = 'earth-mask.png';
+        // Fingerprinted URL (from @Assets) when available, so a new mask is never
+        // masked by a stale browser cache; falls back to the plain path.
+        maskImg.src = (window.ravelinGlobeMask || 'earth-mask.png');
 
         let arcs = [], lastSpawn = 0;
         function spawnArc(t) {
