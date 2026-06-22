@@ -13,6 +13,7 @@ public class ProjectConfiguration : IEntityTypeConfiguration<Project>
         builder.Property(p => p.Key).IsRequired().HasMaxLength(100);
         builder.Property(p => p.Name).IsRequired().HasMaxLength(200);
         builder.Property(p => p.RepositoryUrl).HasMaxLength(500);
+        builder.Property(p => p.WebhookUrl).HasMaxLength(500);
 
         // Pipelines reference a project by its Key, so it must be unique.
         builder.HasIndex(p => p.Key).IsUnique();

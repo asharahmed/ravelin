@@ -58,6 +58,9 @@
     letter-spacing: 0.05em; padding: 0.12rem 0.4rem; border-radius: 3px; vertical-align: middle;
     background: color-mix(in oklch, var(--ink) 10%, transparent); color: var(--ink-soft);
 }
+.s-webhook { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.s-webhook-label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.5rem; }
+.s-webhook-input { flex: 1; min-width: 0; }
 .s-card-meta { font-family: var(--font-mono); font-size: 0.74rem; color: var(--ink-faint); }
 .s-card-sub { font-size: 0.86rem; color: var(--ink-soft); margin: 0.35rem 0 0; }
 

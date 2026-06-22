@@ -19,6 +19,7 @@ public class RavelinDbContext(DbContextOptions<RavelinDbContext> options)
     public DbSet<SlaPolicy> SlaPolicies => Set<SlaPolicy>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+    public DbSet<FindingAlert> FindingAlerts => Set<FindingAlert>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

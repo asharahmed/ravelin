@@ -22,6 +22,8 @@ public static class DependencyInjection
         services.AddScoped<ApiKeyService>();
         services.AddScoped<IngestionService>();
         services.AddSingleton<AuditService>();
+        services.AddSingleton<NotificationService>();
+        services.AddSingleton<SlaReEvaluator>();
 
         return services;
     }

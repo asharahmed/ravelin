@@ -57,6 +57,12 @@ builder.Services.AddRateLimiter(options =>
 // ConnectionStrings__RavelinDb (a secret). Migrations are applied out-of-band.
 builder.Services.AddRavelinInfrastructure(builder.Configuration.GetConnectionString("RavelinDb"));
 
+// Outbound webhook/Slack delivery for SLA alerts (short timeout; failures are swallowed).
+builder.Services.AddHttpClient("webhooks", c => c.Timeout = TimeSpan.FromSeconds(5));
+// Hourly SLA re-evaluation so breaches surface + notify without anyone loading a page.
+// (Needs at least one running replica — see min_replicas in Terraform.)
+builder.Services.AddHostedService<Ravelin.BackgroundServices.SlaReEvaluationHostedService>();
+
 // --- Identity (users + roles) -------------------------------------------------
 builder.Services.AddIdentityCore<IdentityUser>(options =>
     {

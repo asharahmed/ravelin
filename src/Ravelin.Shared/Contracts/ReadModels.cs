@@ -8,6 +8,7 @@ public record ProjectDto
     public string? RepositoryUrl { get; init; }
     public required int OpenFindings { get; init; }
     public bool IsArchived { get; init; }
+    public string? WebhookUrl { get; init; }
 }
 
 public record FindingDto

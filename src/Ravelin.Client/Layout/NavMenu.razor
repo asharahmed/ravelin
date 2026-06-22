@@ -1,5 +1,7 @@
 @inject AuthService Auth
 @inject NavigationManager Nav
+@inject HttpClient Http
+@inject AuthenticationStateProvider AuthState
 
 <div class="brand-row">
     <Brand Href="" />
@@ -14,6 +16,12 @@
             <Authorized>
                 <div class="nav-item">
                     <NavLink class="nav-link" href="dashboard">Posture</NavLink>
+                </div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="alerts">
+                        Alerts
+                        @if (alertCount > 0) { <span class="nav-badge">@alertCount</span> }
+                    </NavLink>
                 </div>
                 <div class="nav-item">
                     <NavLink class="nav-link" href="account">Account</NavLink>
@@ -49,6 +57,16 @@
 </div>
 
 @code {
+    private int alertCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        if (auth.User.Identity?.IsAuthenticated != true) return;
+        try { alertCount = await Http.GetFromJsonAsync<int>("api/alerts/count"); }
+        catch { /* badge stays hidden if the count can't be fetched */ }
+    }
+
     private async Task LogoutAsync()
     {
         await Auth.LogoutAsync();

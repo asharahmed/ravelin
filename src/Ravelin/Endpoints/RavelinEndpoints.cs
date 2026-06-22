@@ -27,6 +27,7 @@ public static class RavelinEndpoints
         MapReads(app);
         MapSla(app);
         MapDashboard(app);
+        MapAlerts(app);
     }
 
     // --- Human auth: email/password -> JWT ----------------------------------------------
@@ -444,6 +445,62 @@ public static class RavelinEndpoints
         admin.MapPost("/projects/{key}/unarchive", (
             string key, RavelinDbContext db, AuditService audit, ClaimsPrincipal actor) =>
             SetArchivedAsync(key, false, db, audit, actor));
+
+        // Re-evaluate SLAs now: raise new alerts + dispatch notifications. Backs the admin
+        // "re-evaluate now" button; the hourly hosted service does the same on a timer.
+        admin.MapPost("/alerts/reevaluate", async (
+            SlaReEvaluator reEvaluator, AuditService audit, ClaimsPrincipal actor) =>
+        {
+            var r = await reEvaluator.ReEvaluateAsync();
+            await audit.RecordAsync(ActorOf(actor), "alert.reeval.manual", null,
+                $"{r.NewBreached} breached, {r.NewDueSoon} due-soon");
+            return Results.Ok(new ReEvaluateSummaryDto
+            {
+                Scanned = r.Scanned, NewBreached = r.NewBreached, NewDueSoon = r.NewDueSoon, Notified = r.Notified,
+            });
+        });
+
+        // Set / clear a project's outbound alert webhook (Slack or generic; URL validated).
+        admin.MapPut("/projects/{key}/webhook", async (
+            string key, SetWebhookRequest req, RavelinDbContext db, AuditService audit, ClaimsPrincipal actor) =>
+        {
+            var project = await db.Projects.FirstOrDefaultAsync(p => p.Key == key);
+            if (project is null)
+            {
+                return Results.NotFound($"Project '{key}' not found.");
+            }
+
+            var url = string.IsNullOrWhiteSpace(req.Url) ? null : req.Url.Trim();
+            if (url is not null && !NotificationService.IsValidWebhookUrl(url, out var err))
+            {
+                return Results.Problem(detail: err, statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            project.WebhookUrl = url;
+            await db.SaveChangesAsync();
+            await audit.RecordAsync(ActorOf(actor), "project.webhook", key, url is null ? "cleared" : "set");
+            return Results.NoContent();
+        });
+
+        // Fire a synthetic alert at the project's webhook to verify it's wired up.
+        admin.MapPost("/projects/{key}/webhook/test", async (
+            string key, RavelinDbContext db, NotificationService notify) =>
+        {
+            var project = await db.Projects.FirstOrDefaultAsync(p => p.Key == key);
+            if (project is null)
+            {
+                return Results.NotFound($"Project '{key}' not found.");
+            }
+            if (string.IsNullOrWhiteSpace(project.WebhookUrl))
+            {
+                return Results.Problem(detail: "No webhook configured for this project.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            var (ok, status, error) = await notify.SendAsync(project.WebhookUrl, project.Name,
+                [new NotificationService.AlertLine("CVE-2024-0000", "High", "Breached", 3)]);
+            return Results.Ok(new TestWebhookResponse { Success = ok, StatusCode = status, Error = error });
+        });
     }
 
     private static async Task<IResult> SetArchivedAsync(
@@ -525,6 +582,7 @@ public static class RavelinEndpoints
                     RepositoryUrl = p.RepositoryUrl,
                     OpenFindings = p.Findings.Count(f => f.Status == FindingStatus.Open),
                     IsArchived = p.IsArchived,
+                    WebhookUrl = p.WebhookUrl,
                 })
                 .ToListAsync();
 
@@ -826,6 +884,70 @@ public static class RavelinEndpoints
         .RequireAuthorization();
     }
 
+    // --- Alerts (SLA breach / due-soon, raised by the re-evaluator) ---------------------
+    private static void MapAlerts(WebApplication app)
+    {
+        var alerts = app.MapGroup("/api").RequireAuthorization();
+
+        alerts.MapGet("/alerts", async (string? state, bool? acknowledged, RavelinDbContext db) =>
+        {
+            var now = DateTimeOffset.UtcNow;
+            var query = db.FindingAlerts.AsQueryable();
+            if (Enum.TryParse<SlaState>(state, ignoreCase: true, out var st)) query = query.Where(a => a.State == st);
+            if (acknowledged == true) query = query.Where(a => a.AcknowledgedAt != null);
+            else if (acknowledged == false) query = query.Where(a => a.AcknowledgedAt == null);
+
+            var rows = await query
+                .OrderByDescending(a => a.RaisedAt)
+                .Take(200)
+                .Join(db.Findings, a => a.FindingId, f => f.Id, (a, f) => new { a, f })
+                .Join(db.Projects, x => x.f.ProjectId, p => p.Id, (x, p) => new { x.a, x.f, p })
+                .ToListAsync();
+
+            var dtos = rows.Select(r => new AlertDto
+            {
+                Id = r.a.Id,
+                ProjectKey = r.p.Key,
+                ProjectName = r.p.Name,
+                VulnerabilityId = r.f.VulnerabilityId,
+                PackageName = r.f.PackageName,
+                Severity = r.a.Severity.ToString(),
+                State = r.a.State.ToString(),
+                RaisedAt = r.a.RaisedAt,
+                AcknowledgedAt = r.a.AcknowledgedAt,
+                AcknowledgedBy = r.a.AcknowledgedBy,
+                DaysOverdue = r.a.State == SlaState.Breached && r.f.SlaDueAt is DateTimeOffset due
+                    ? Math.Max(0, (int)Math.Floor((now - due).TotalDays)) : null,
+            }).ToList();
+
+            return Results.Ok(dtos);
+        });
+
+        // Unacknowledged count for the nav badge.
+        alerts.MapGet("/alerts/count", async (RavelinDbContext db) =>
+            Results.Ok(await db.FindingAlerts.CountAsync(a => a.AcknowledgedAt == null)));
+
+        alerts.MapPost("/alerts/{id:guid}/acknowledge", async (
+            Guid id, RavelinDbContext db, AuditService audit, ClaimsPrincipal actor) =>
+        {
+            var alert = await db.FindingAlerts.FirstOrDefaultAsync(a => a.Id == id);
+            if (alert is null)
+            {
+                return Results.NotFound("Alert not found.");
+            }
+            if (alert.AcknowledgedAt is null)
+            {
+                alert.AcknowledgedAt = DateTimeOffset.UtcNow;
+                alert.AcknowledgedBy = ActorOf(actor);
+                await db.SaveChangesAsync();
+                await audit.RecordAsync(ActorOf(actor), "alert.ack", id.ToString());
+            }
+            return Results.NoContent();
+        })
+        .RequireAuthorization(p => p.RequireRole(RavelinRoles.Admin, RavelinRoles.Analyst))
+        .DisableAntiforgery();
+    }
+
     // --- Helpers ------------------------------------------------------------------------
     private static Severity ParseSeverity(string? value) => SeverityMap.Parse(value);
 
@@ -863,6 +985,7 @@ public static class RavelinEndpoints
         RepositoryUrl = p.RepositoryUrl,
         OpenFindings = openFindings,
         IsArchived = p.IsArchived,
+        WebhookUrl = p.WebhookUrl,
     };
 
     private static FindingDto ToDto(Finding f, DateTimeOffset now)

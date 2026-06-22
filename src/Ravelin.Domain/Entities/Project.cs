@@ -18,6 +18,10 @@ public class Project
     /// <summary>Optional source repository URL.</summary>
     public string? RepositoryUrl { get; set; }
 
+    /// <summary>Optional outbound webhook (generic JSON, or Slack if it's a Slack incoming URL)
+    /// that receives new breach / due-soon alerts for this project.</summary>
+    public string? WebhookUrl { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     /// <summary>Archived projects are hidden from the default dashboard/lists but keep their

@@ -63,6 +63,21 @@
     color: var(--ink);
 }
 
+.nav-badge {
+    display: inline-block;
+    min-width: 1.15rem;
+    padding: 0 0.32rem;
+    margin-left: 0.45rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    line-height: 1.15rem;
+    text-align: center;
+    border-radius: 999px;
+    background: var(--brand);
+    color: #fff;
+    vertical-align: middle;
+}
+
 /* Footer: user + sign in/out */
 .nav-foot {
     margin-top: auto;

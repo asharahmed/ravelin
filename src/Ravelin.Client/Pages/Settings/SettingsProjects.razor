@@ -64,6 +64,16 @@
                     </div>
                 </div>
 
+                <div class="s-webhook">
+                    <label class="s-webhook-label">Alert webhook <span class="s-card-meta">— Slack incoming-webhook or generic JSON; receives new breach / due-soon alerts</span></label>
+                    <div class="s-inline">
+                        <input class="s-webhook-input" placeholder="https://hooks.slack.com/services/…"
+                               value="@WebhookValue(p)" @oninput="e => webhookEdits[p.Key] = e.Value?.ToString() ?? string.Empty" />
+                        <button class="s-btn s-btn--sm" @onclick="() => SaveWebhookAsync(p)">Save</button>
+                        <button class="s-btn s-btn--ghost s-btn--sm" disabled="@string.IsNullOrWhiteSpace(p.WebhookUrl)" @onclick="() => TestWebhookAsync(p)">Send test</button>
+                    </div>
+                </div>
+
                 @if (expanded == p.Key)
                 {
                     <div style="margin-top:1.1rem">
@@ -155,6 +165,43 @@
         try { projects = await Http.GetFromJsonAsync<List<ProjectDto>>($"api/projects?includeArchived={showArchived}") ?? new(); }
         catch (Exception ex) { loadError = $"Could not load projects: {ex.Message}"; }
         finally { loading = false; }
+    }
+
+    private readonly Dictionary<string, string> webhookEdits = new();
+    private string WebhookValue(ProjectDto p) => webhookEdits.TryGetValue(p.Key, out var v) ? v : (p.WebhookUrl ?? "");
+
+    private async Task SaveWebhookAsync(ProjectDto p)
+    {
+        var url = WebhookValue(p).Trim();
+        try
+        {
+            var resp = await Http.PutAsJsonAsync($"api/admin/projects/{p.Key}/webhook",
+                new SetWebhookRequest { Url = string.IsNullOrWhiteSpace(url) ? null : url });
+            if (resp.IsSuccessStatusCode)
+            {
+                Toast.Success(string.IsNullOrWhiteSpace(url) ? "Webhook cleared." : "Webhook saved.");
+                webhookEdits.Remove(p.Key);
+                await LoadProjectsAsync();
+            }
+            else { Toast.Error(await ApiErrors.ReadMessageAsync(resp, "Could not save the webhook.")); }
+        }
+        catch (Exception ex) { Toast.Error(ex.Message); }
+    }
+
+    private async Task TestWebhookAsync(ProjectDto p)
+    {
+        try
+        {
+            var resp = await Http.PostAsync($"api/admin/projects/{p.Key}/webhook/test", null);
+            if (resp.IsSuccessStatusCode)
+            {
+                var r = await resp.Content.ReadFromJsonAsync<TestWebhookResponse>();
+                if (r?.Success == true) Toast.Success($"Test alert delivered (HTTP {r.StatusCode}).");
+                else Toast.Error($"Webhook test failed: {r?.Error ?? "unknown error"}.");
+            }
+            else { Toast.Error(await ApiErrors.ReadMessageAsync(resp, "Webhook test failed.")); }
+        }
+        catch (Exception ex) { Toast.Error(ex.Message); }
     }
 
     private async Task ToggleArchivedAsync(ProjectDto p)

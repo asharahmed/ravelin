@@ -1,0 +1,151 @@
+@page "/alerts"
+@attribute [Authorize]
+@inject HttpClient Http
+@inject ToastService Toasts
+
+<PageTitle>Alerts — Ravelin</PageTitle>
+
+<header class="dash-head ledger-rise">
+    <div>
+        <div class="ledger-eyebrow">Alerts</div>
+        <h1 class="ledger-display dash-title">SLA alerts</h1>
+    </div>
+    <div class="dash-head-right">
+        <AuthorizeView Roles="@AdminRole">
+            <Authorized>
+                <button class="dash-report" @onclick="ReevaluateAsync" disabled="@reevaluating">
+                    @(reevaluating ? "Re-evaluating…" : "Re-evaluate now")
+                </button>
+            </Authorized>
+        </AuthorizeView>
+    </div>
+</header>
+<hr class="dash-rule ledger-rise" />
+
+<div class="alert-filters">
+    @foreach (var f in filters)
+    {
+        <button class="alert-filter @(filter == f ? "is-active" : "")" @onclick="() => SetFilter(f)">@FilterLabel(f)</button>
+    }
+</div>
+
+@if (loading)
+{
+    <div class="ledger-panel"><span class="skeleton" style="display:block;height:1.4rem;width:55%"></span></div>
+}
+else if (error is not null)
+{
+    <div class="ledger-panel dash-error">Could not load alerts: @error</div>
+}
+else if (alerts.Count == 0)
+{
+    <div class="ledger-panel dash-empty">
+        <h2 class="ledger-display">Nothing to flag</h2>
+        <p>No @(filter == "All" ? "" : FilterLabel(filter).ToLowerInvariant() + " ")alerts. Findings appear here as the hourly SLA re-evaluation flags them due-soon or breached.</p>
+    </div>
+}
+else
+{
+    <div class="ledger-panel reveal">
+        <table class="s-table" data-reveal-stagger>
+            <thead><tr><th>Severity</th><th>Finding</th><th>Project</th><th>State</th><th>Raised</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var a in alerts)
+                {
+                    <tr class="reveal @(a.AcknowledgedAt is null ? "" : "alert-acked")">
+                        <td><span class="chip sev-@a.Severity.ToLowerInvariant()">@a.Severity</span></td>
+                        <td>
+                            <div class="alert-vuln">@a.VulnerabilityId</div>
+                            <span class="alert-pkg">@a.PackageName</span>
+                        </td>
+                        <td><a class="alert-proj" href="projects/@a.ProjectKey">@a.ProjectName</a></td>
+                        <td>
+                            <span class="chip sla-@a.State.ToLowerInvariant()">@Humanize(a.State)@(a.DaysOverdue is int d ? $" · {d}d" : "")</span>
+                        </td>
+                        <td class="alert-when">@a.RaisedAt.ToLocalTime().ToString("MMM d, HH:mm")</td>
+                        <td class="alert-action">
+                            @if (a.AcknowledgedAt is null)
+                            {
+                                <AuthorizeView Roles="@TriageRoles">
+                                    <Authorized>
+                                        <button class="s-btn s-btn--sm" @onclick="() => AckAsync(a)">Acknowledge</button>
+                                    </Authorized>
+                                </AuthorizeView>
+                            }
+                            else
+                            {
+                                <span class="alert-ack-by" title="@a.AcknowledgedBy">✓ acknowledged</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private const string AdminRole = RavelinRoles.Admin;
+    private const string TriageRoles = $"{RavelinRoles.Admin},{RavelinRoles.Analyst}";
+    private static readonly string[] filters = ["Unacknowledged", "Breached", "DueSoon", "All"];
+
+    private List<AlertDto> alerts = new();
+    private bool loading = true;
+    private string? error;
+    private string filter = "Unacknowledged";
+    private bool reevaluating;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task SetFilter(string f) { filter = f; await LoadAsync(); }
+
+    private async Task LoadAsync()
+    {
+        loading = true; error = null;
+        try
+        {
+            var q = filter switch
+            {
+                "Unacknowledged" => "?acknowledged=false",
+                "Breached" => "?state=Breached",
+                "DueSoon" => "?state=DueSoon",
+                _ => "",
+            };
+            alerts = await Http.GetFromJsonAsync<List<AlertDto>>($"api/alerts{q}") ?? new();
+        }
+        catch (Exception ex) { error = ex.Message; }
+        finally { loading = false; }
+    }
+
+    private async Task AckAsync(AlertDto a)
+    {
+        try
+        {
+            var resp = await Http.PostAsync($"api/alerts/{a.Id}/acknowledge", null);
+            if (resp.IsSuccessStatusCode) { Toasts.Success("Alert acknowledged."); await LoadAsync(); }
+            else { Toasts.Error(await ApiErrors.ReadMessageAsync(resp, "Could not acknowledge the alert.")); }
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+    }
+
+    private async Task ReevaluateAsync()
+    {
+        reevaluating = true;
+        try
+        {
+            var resp = await Http.PostAsync("api/admin/alerts/reevaluate", null);
+            if (resp.IsSuccessStatusCode)
+            {
+                var s = await resp.Content.ReadFromJsonAsync<ReEvaluateSummaryDto>();
+                Toasts.Success($"Re-evaluated {s?.Scanned ?? 0} findings — {s?.NewBreached ?? 0} newly breached, {s?.NewDueSoon ?? 0} due-soon.");
+                await LoadAsync();
+            }
+            else { Toasts.Error(await ApiErrors.ReadMessageAsync(resp, "Re-evaluation failed.")); }
+        }
+        catch (Exception ex) { Toasts.Error(ex.Message); }
+        finally { reevaluating = false; }
+    }
+
+    private static string FilterLabel(string f) => f == "DueSoon" ? "Due soon" : f;
+    private static string Humanize(string state) => state == "DueSoon" ? "Due soon" : state;
+}

@@ -1,0 +1,24 @@
+.alert-filters { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
+
+.alert-filter {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    background: transparent;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.alert-filter:hover { color: var(--ink); border-color: var(--ink); }
+.alert-filter.is-active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+.alert-vuln { font-family: var(--font-code); font-weight: 500; }
+.alert-pkg { font-family: var(--font-code); font-size: 0.78rem; color: var(--ink-faint); }
+.alert-proj { color: var(--brand); text-decoration: none; }
+.alert-proj:hover { text-decoration: underline; }
+.alert-when { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-faint); white-space: nowrap; }
+.alert-action { text-align: right; white-space: nowrap; }
+.alert-ack-by { font-size: 0.78rem; color: var(--ink-faint); }
+.alert-acked { opacity: 0.62; }
