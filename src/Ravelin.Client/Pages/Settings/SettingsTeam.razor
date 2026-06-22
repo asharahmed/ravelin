@@ -87,8 +87,8 @@
             }
             else
             {
-                var msg = (await resp.Content.ReadAsStringAsync()).Trim().Trim('"');
-                Toast.Error(string.IsNullOrWhiteSpace(msg) ? $"Could not change role ({(int)resp.StatusCode})." : msg);
+                var msg = await ApiErrors.ReadMessageAsync(resp, $"Could not change role ({(int)resp.StatusCode}).");
+                Toast.Error(msg);
                 await LoadAsync(); // revert the dropdown to the server's truth
             }
         }

@@ -85,8 +85,7 @@
             if (resp.IsSuccessStatusCode) { Toast.Success("SLA policy saved. Open findings re-baselined."); }
             else
             {
-                saveError = (await resp.Content.ReadAsStringAsync()).Trim().Trim('"');
-                if (string.IsNullOrWhiteSpace(saveError)) saveError = $"Failed ({(int)resp.StatusCode}).";
+                saveError = await ApiErrors.ReadMessageAsync(resp, $"Failed ({(int)resp.StatusCode}).");
             }
         }
         catch (Exception ex) { saveError = ex.Message; }

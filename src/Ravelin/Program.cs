@@ -1,6 +1,7 @@
 using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
@@ -19,8 +20,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents();
 
-// Liveness/readiness probe used locally and by Azure Container Apps (Stage 1).
-builder.Services.AddHealthChecks();
+// Health checks: a liveness probe (process is up) plus a DB-backed readiness probe (can we
+// actually serve?). Container Apps points its liveness/readiness probes at the two paths below.
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<RavelinDbContext>("db", tags: ["ready"]);
+
+// Standardise error responses as RFC 9457 ProblemDetails (JSON) across the API.
+builder.Services.AddProblemDetails();
 
 // OpenAPI document generation (API-first: the spec is published, see /openapi/v1.json).
 builder.Services.AddOpenApi();
@@ -121,6 +127,9 @@ catch (Exception ex)
 // Honour the ingress's forwarded headers first, so downstream sees the real client IP/scheme.
 app.UseForwardedHeaders();
 
+// Correlation id + a single structured log line per request.
+app.UseMiddleware<Ravelin.Middleware.CorrelationIdMiddleware>();
+
 // Security response headers. The CSP guards the app UI; the Scalar reference and the OpenAPI
 // spec are excluded (Scalar's bundle needs different sources). script-src keeps 'unsafe-inline'
 // only because Blazor emits an inline import map — everything else is locked to same-origin.
@@ -170,8 +179,11 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 
 // --- API surface --------------------------------------------------------------
-// Health probe + info endpoint (anonymous).
-app.MapHealthChecks("/health");
+// Health probes (anonymous). Liveness = process up; readiness = DB reachable. /health stays as
+// a liveness alias for backward-compatible probes/scripts.
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });
+app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false });
 
 // Published OpenAPI document + an interactive API reference at /scalar. Anonymous (it's
 // documentation); the endpoints it describes stay authenticated.

@@ -57,8 +57,7 @@ public sealed class AuthService(
 
         if (response.StatusCode == HttpStatusCode.BadRequest)
         {
-            var detail = (await response.Content.ReadAsStringAsync()).Trim().Trim('"');
-            return string.IsNullOrWhiteSpace(detail) ? "Could not create the account." : detail;
+            return await ApiErrors.ReadMessageAsync(response, "Could not create the account.");
         }
         if (!response.IsSuccessStatusCode)
         {

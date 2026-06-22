@@ -342,7 +342,7 @@ else
                 new TriageFindingRequest { Status = triageStatus, Note = string.IsNullOrWhiteSpace(triageNote) ? null : triageNote });
             if (!resp.IsSuccessStatusCode)
             {
-                triageError = await resp.Content.ReadAsStringAsync();
+                triageError = await ApiErrors.ReadMessageAsync(resp, "Could not apply the triage.");
                 return;
             }
             editingId = null;

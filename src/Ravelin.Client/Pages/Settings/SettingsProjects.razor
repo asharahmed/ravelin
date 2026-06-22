@@ -175,8 +175,7 @@
             }
             else
             {
-                projectError = (await resp.Content.ReadAsStringAsync()).Trim().Trim('"');
-                if (string.IsNullOrWhiteSpace(projectError)) projectError = $"Failed ({(int)resp.StatusCode}).";
+                projectError = await ApiErrors.ReadMessageAsync(resp, $"Failed ({(int)resp.StatusCode}).");
             }
         }
         catch (Exception ex) { projectError = ex.Message; }
@@ -217,8 +216,7 @@
             }
             else
             {
-                keyError = (await resp.Content.ReadAsStringAsync()).Trim().Trim('"');
-                if (string.IsNullOrWhiteSpace(keyError)) keyError = $"Failed ({(int)resp.StatusCode}).";
+                keyError = await ApiErrors.ReadMessageAsync(resp, $"Failed ({(int)resp.StatusCode}).");
             }
         }
         catch (Exception ex) { keyError = ex.Message; }

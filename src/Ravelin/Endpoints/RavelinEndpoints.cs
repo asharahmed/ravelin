@@ -116,12 +116,14 @@ public static class RavelinEndpoints
 
             if (string.IsNullOrWhiteSpace(request.Tool))
             {
-                return Results.BadRequest("Tool is required.");
+                return Results.Problem(detail: "Tool is required.", statusCode: StatusCodes.Status400BadRequest);
             }
 
             if (request.Findings is null || request.Findings.Count > MaxFindingsPerScan)
             {
-                return Results.BadRequest($"Findings are required and limited to {MaxFindingsPerScan} per scan.");
+                return Results.Problem(
+                    detail: $"Findings are required and limited to {MaxFindingsPerScan} per scan.",
+                    statusCode: StatusCodes.Status400BadRequest);
             }
 
             var incoming = new List<IncomingFinding>(request.Findings.Count);
@@ -132,8 +134,9 @@ public static class RavelinEndpoints
                     string.IsNullOrWhiteSpace(f.PackageVersion) ||
                     string.IsNullOrWhiteSpace(f.Title))
                 {
-                    return Results.BadRequest(
-                        "Each finding requires VulnerabilityId, PackageName, PackageVersion, and Title.");
+                    return Results.Problem(
+                        detail: "Each finding requires VulnerabilityId, PackageName, PackageVersion, and Title.",
+                        statusCode: StatusCodes.Status400BadRequest);
                 }
 
                 incoming.Add(new IncomingFinding
@@ -203,7 +206,7 @@ public static class RavelinEndpoints
         }
         if (string.IsNullOrWhiteSpace(body))
         {
-            return Results.BadRequest("Request body is empty.");
+            return Results.Problem(detail: "Request body is empty.", statusCode: StatusCodes.Status400BadRequest);
         }
 
         IReadOnlyList<IncomingFinding> incoming;
@@ -213,12 +216,16 @@ public static class RavelinEndpoints
         }
         catch (Exception ex) when (ex is JsonException or FormatException)
         {
-            return Results.BadRequest($"Could not read the {tool} report: {ex.Message}");
+            return Results.Problem(
+                detail: $"Could not read the {tool} report: {ex.Message}",
+                statusCode: StatusCodes.Status400BadRequest);
         }
 
         if (incoming.Count > MaxFindingsPerScan)
         {
-            return Results.BadRequest($"Findings are limited to {MaxFindingsPerScan} per scan.");
+            return Results.Problem(
+                detail: $"Findings are limited to {MaxFindingsPerScan} per scan.",
+                statusCode: StatusCodes.Status400BadRequest);
         }
 
         // An empty report is valid: it records a clean scan and auto-resolves what's now gone.
