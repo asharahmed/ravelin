@@ -99,7 +99,7 @@
                 const sample = (lat, lon) => {
                     let x = (((lon + 180) / 360) * W) | 0; if (x < 0) x = 0; else if (x >= W) x = W - 1;
                     let y = (((90 - lat) / 180) * H) | 0; if (y < 0) y = 0; else if (y >= H) y = H - 1;
-                    return px[(y * W + x) * 4] > 8; // land = topology above sea level
+                    return px[(y * W + x) * 4] > 8; // binary land/sea mask: white = land
                 };
                 land = buildLand(sample);
                 hotspots = pickHotspots(land);
