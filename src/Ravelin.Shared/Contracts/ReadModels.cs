@@ -7,6 +7,7 @@ public record ProjectDto
     public required string Name { get; init; }
     public string? RepositoryUrl { get; init; }
     public required int OpenFindings { get; init; }
+    public bool IsArchived { get; init; }
 }
 
 public record FindingDto
@@ -16,6 +17,7 @@ public record FindingDto
     public required string PackageName { get; init; }
     public required string PackageVersion { get; init; }
     public required string Title { get; init; }
+    public string? Description { get; init; }
     public required string Severity { get; init; }
     public required string Status { get; init; }
     public double? CvssScore { get; init; }

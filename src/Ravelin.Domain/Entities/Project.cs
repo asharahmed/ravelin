@@ -20,6 +20,12 @@ public class Project
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
+    /// <summary>Archived projects are hidden from the default dashboard/lists but keep their
+    /// data and stop accruing new alerts. Reversible.</summary>
+    public bool IsArchived { get; set; }
+
+    public DateTimeOffset? ArchivedAt { get; set; }
+
     // Navigation
     public ICollection<Scan> Scans { get; set; } = new List<Scan>();
     public ICollection<Finding> Findings { get; set; } = new List<Finding>();

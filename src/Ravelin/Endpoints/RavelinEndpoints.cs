@@ -435,6 +435,33 @@ public static class RavelinEndpoints
                 TemporaryPassword = temp,
             });
         });
+
+        // Archive / unarchive a project (reversible; hides it from the dashboard + default lists).
+        admin.MapPost("/projects/{key}/archive", (
+            string key, RavelinDbContext db, AuditService audit, ClaimsPrincipal actor) =>
+            SetArchivedAsync(key, true, db, audit, actor));
+
+        admin.MapPost("/projects/{key}/unarchive", (
+            string key, RavelinDbContext db, AuditService audit, ClaimsPrincipal actor) =>
+            SetArchivedAsync(key, false, db, audit, actor));
+    }
+
+    private static async Task<IResult> SetArchivedAsync(
+        string key, bool archived, RavelinDbContext db, AuditService audit, ClaimsPrincipal actor)
+    {
+        var project = await db.Projects.FirstOrDefaultAsync(p => p.Key == key);
+        if (project is null)
+        {
+            return Results.NotFound($"Project '{key}' not found.");
+        }
+
+        project.IsArchived = archived;
+        project.ArchivedAt = archived ? DateTimeOffset.UtcNow : null;
+        await db.SaveChangesAsync();
+        await audit.RecordAsync(ActorOf(actor), archived ? "project.archive" : "project.unarchive", key);
+
+        var open = await db.Findings.CountAsync(f => f.ProjectId == project.Id && f.Status == FindingStatus.Open);
+        return Results.Ok(ToDto(project, open));
     }
 
     // --- Account (the signed-in user's own profile + password) --------------------------
@@ -483,9 +510,13 @@ public static class RavelinEndpoints
     {
         var reads = app.MapGroup("/api").RequireAuthorization();
 
-        reads.MapGet("/projects", async (RavelinDbContext db) =>
+        reads.MapGet("/projects", async (bool? includeArchived, RavelinDbContext db) =>
         {
-            var projects = await db.Projects
+            var query = db.Projects.AsQueryable();
+            if (includeArchived != true) query = query.Where(p => !p.IsArchived);
+
+            var projects = await query
+                .OrderBy(p => p.IsArchived).ThenBy(p => p.Name)
                 .Select(p => new ProjectDto
                 {
                     Id = p.Id,
@@ -493,6 +524,7 @@ public static class RavelinEndpoints
                     Name = p.Name,
                     RepositoryUrl = p.RepositoryUrl,
                     OpenFindings = p.Findings.Count(f => f.Status == FindingStatus.Open),
+                    IsArchived = p.IsArchived,
                 })
                 .ToListAsync();
 
@@ -562,12 +594,14 @@ public static class RavelinEndpoints
             var now = DateTimeOffset.UtcNow;
 
             var projects = await db.Projects
+                .Where(p => !p.IsArchived)
                 .Select(p => new { p.Id, p.Key, p.Name })
                 .ToListAsync();
+            var activeIds = projects.Select(p => p.Id).ToHashSet();
 
-            // Open findings drive every "current posture" number.
+            // Open findings drive every "current posture" number (archived projects excluded).
             var open = await db.Findings
-                .Where(f => f.Status == FindingStatus.Open)
+                .Where(f => f.Status == FindingStatus.Open && activeIds.Contains(f.ProjectId))
                 .Select(f => new { f.ProjectId, f.Severity, f.SlaDueAt })
                 .ToListAsync();
 
@@ -611,11 +645,11 @@ public static class RavelinEndpoints
             const int weeks = 8;
             var windowStart = now.Date.AddDays(-7 * (weeks - 1) - (int)now.DayOfWeek);
             var detected = await db.Findings
-                .Where(f => f.FirstDetectedAt >= windowStart)
+                .Where(f => f.FirstDetectedAt >= windowStart && activeIds.Contains(f.ProjectId))
                 .Select(f => f.FirstDetectedAt)
                 .ToListAsync();
             var resolvedAt = await db.Findings
-                .Where(f => f.ResolvedAt != null && f.ResolvedAt >= windowStart)
+                .Where(f => f.ResolvedAt != null && f.ResolvedAt >= windowStart && activeIds.Contains(f.ProjectId))
                 .Select(f => f.ResolvedAt!.Value)
                 .ToListAsync();
 
@@ -828,6 +862,7 @@ public static class RavelinEndpoints
         Name = p.Name,
         RepositoryUrl = p.RepositoryUrl,
         OpenFindings = openFindings,
+        IsArchived = p.IsArchived,
     };
 
     private static FindingDto ToDto(Finding f, DateTimeOffset now)
@@ -840,6 +875,7 @@ public static class RavelinEndpoints
             PackageName = f.PackageName,
             PackageVersion = f.PackageVersion,
             Title = f.Title,
+            Description = f.Description,
             Severity = f.Severity.ToString(),
             Status = f.Status.ToString(),
             CvssScore = f.CvssScore,

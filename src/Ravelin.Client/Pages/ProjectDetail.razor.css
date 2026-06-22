@@ -232,6 +232,9 @@
 @keyframes pd-sk-fade { from { opacity: 0; } }
 .find-title { font-weight: 600; color: var(--ink); font-size: 0.92rem; max-width: 34ch; }
 .find-vuln { font-family: var(--font-code); font-size: 0.72rem; color: var(--ink-faint); }
+.find-vuln-link { color: var(--brand); text-decoration: none; }
+.find-vuln-link:hover { text-decoration: underline; }
+.find-table .find-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .find-pkg { font-family: var(--font-code); font-size: 0.82rem; font-weight: 500; }
 .find-ver { font-family: var(--font-code); color: var(--ink-faint); font-size: 0.8rem; }
 .find-status { font-size: 0.88rem; color: var(--ink-soft); }

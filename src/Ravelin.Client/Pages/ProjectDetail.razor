@@ -123,6 +123,8 @@ else
                         <th><button class="find-sort @SortCls("Severity")" @onclick="@(() => SortBy("Severity"))">Severity @SortArrow("Severity")</button></th>
                         <th>Vulnerability</th>
                         <th><button class="find-sort @SortCls("Package")" @onclick="@(() => SortBy("Package"))">Package @SortArrow("Package")</button></th>
+                        <th class="find-num">CVSS</th>
+                        <th>Fix</th>
                         <th><button class="find-sort @SortCls("Status")" @onclick="@(() => SortBy("Status"))">Status @SortArrow("Status")</button></th>
                         <th><button class="find-sort @SortCls("SLA")" @onclick="@(() => SortBy("SLA"))">SLA @SortArrow("SLA")</button></th>
                         <AuthorizeView Roles="@TriageRoles" Context="auth"><Authorized><th></th></Authorized></AuthorizeView>
@@ -135,9 +137,19 @@ else
                             <td><span class="chip @SevClass(f.Severity)">@f.Severity</span></td>
                             <td>
                                 <div class="find-title">@f.Title</div>
-                                <code class="find-vuln">@f.VulnerabilityId</code>
+                                @{ var refUrl = RefUrl(f.VulnerabilityId); }
+                                @if (refUrl is not null)
+                                {
+                                    <a class="find-vuln find-vuln-link" href="@refUrl" target="_blank" rel="noopener noreferrer">@f.VulnerabilityId <span aria-hidden="true">↗</span></a>
+                                }
+                                else
+                                {
+                                    <code class="find-vuln">@f.VulnerabilityId</code>
+                                }
                             </td>
                             <td><span class="find-pkg">@f.PackageName</span> <span class="find-ver">@f.PackageVersion</span></td>
+                            <td class="find-num">@(f.CvssScore is double cv ? cv.ToString("0.0") : "—")</td>
+                            <td>@(string.IsNullOrWhiteSpace(f.FixedVersion) ? "—" : f.FixedVersion)</td>
                             <td><span class="find-status">@Humanize(f.Status)</span></td>
                             <td>@SlaCell(f)</td>
                             <AuthorizeView Roles="@TriageRoles" Context="auth">
@@ -151,7 +163,7 @@ else
                         @if (editingId == f.Id)
                         {
                             <tr class="triage-row">
-                                <td colspan="6">
+                                <td colspan="8">
                                     <div class="triage-panel">
                                         <div class="triage-fields">
                                             <label>
@@ -300,12 +312,13 @@ else
     {
         var rows = Visible.ToList();
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine("Severity,Vulnerability,Title,Package,Version,Status,SLA State,Days To SLA");
+        sb.AppendLine("Severity,Vulnerability,Title,Package,Version,CVSS,Fixed Version,Status,SLA State,Days To SLA");
         foreach (var f in rows)
         {
             sb.AppendLine(Ravelin.Shared.Csv.Row(
                 f.Severity, f.VulnerabilityId, f.Title,
-                f.PackageName, f.PackageVersion, Humanize(f.Status),
+                f.PackageName, f.PackageVersion,
+                f.CvssScore?.ToString("0.0"), f.FixedVersion, Humanize(f.Status),
                 f.SlaState, f.DaysToSla?.ToString()));
         }
         var name = $"ravelin-{Key}-findings-{DateTime.Now:yyyyMMdd}.csv";
@@ -360,6 +373,17 @@ else
     }
 
     private static string SevClass(string sev) => "sev-" + sev.ToLowerInvariant();
+
+    // Link a vulnerability id to its public advisory (no API call — just a constructed URL).
+    private static string? RefUrl(string vulnId)
+    {
+        if (string.IsNullOrWhiteSpace(vulnId)) return null;
+        if (vulnId.StartsWith("CVE-", StringComparison.OrdinalIgnoreCase))
+            return $"https://nvd.nist.gov/vuln/detail/{vulnId}";
+        if (vulnId.StartsWith("GHSA-", StringComparison.OrdinalIgnoreCase))
+            return $"https://github.com/advisories/{vulnId}";
+        return null;
+    }
 
     private static string Truncate(string s, int max) =>
         string.IsNullOrEmpty(s) || s.Length <= max ? s : s[..(max - 1)].TrimEnd() + "…";

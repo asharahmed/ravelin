@@ -9,8 +9,9 @@
 <SettingsShell Title="Projects &amp; API keys"
                Subtitle="Create the projects your pipelines push scans to, and issue scoped, hashed API keys. A key's secret is shown once, at creation — store it immediately.">
 
-    <div class="s-actions" style="margin-bottom:1.2rem">
+    <div class="s-actions" style="margin-bottom:1.2rem; align-items:center; gap:1rem">
         <button class="s-btn" @onclick="() => showNew = !showNew">@(showNew ? "Cancel" : "New project")</button>
+        <label class="s-archived-toggle"><input type="checkbox" @bind="showArchived" @bind:after="LoadProjectsAsync" /> Show archived</label>
     </div>
 
     @if (showNew)
@@ -49,15 +50,18 @@
     {
         @foreach (var p in projects!)
         {
-            <div class="s-card">
+            <div class="s-card @(p.IsArchived ? "s-card--archived" : "")">
                 <div class="s-card-head">
                     <div>
-                        <h2 class="s-card-title">@p.Name</h2>
+                        <h2 class="s-card-title">@p.Name @if (p.IsArchived) { <span class="s-archived-badge">Archived</span> }</h2>
                         <p class="s-card-sub">
                             <span class="s-mono">@p.Key</span> · @p.OpenFindings open finding@(p.OpenFindings == 1 ? "" : "s")@(string.IsNullOrEmpty(p.RepositoryUrl) ? "" : $" · {p.RepositoryUrl}")
                         </p>
                     </div>
-                    <button class="s-btn s-btn--ghost s-btn--sm" @onclick="() => ToggleKeysAsync(p.Key)">@(expanded == p.Key ? "Hide keys" : "Manage keys")</button>
+                    <div class="s-card-head-actions">
+                        <button class="s-btn s-btn--ghost s-btn--sm" @onclick="() => ToggleKeysAsync(p.Key)">@(expanded == p.Key ? "Hide keys" : "Manage keys")</button>
+                        <button class="s-btn s-btn--ghost s-btn--sm" @onclick="() => ToggleArchivedAsync(p)">@(p.IsArchived ? "Unarchive" : "Archive")</button>
+                    </div>
                 </div>
 
                 @if (expanded == p.Key)
@@ -126,6 +130,7 @@
     private List<ProjectDto>? projects;
     private bool loading = true;
     private string? loadError;
+    private bool showArchived;
 
     private bool showNew;
     private string npKey = "", npName = "", npRepo = "";
@@ -147,9 +152,28 @@
     private async Task LoadProjectsAsync()
     {
         loading = true; loadError = null;
-        try { projects = await Http.GetFromJsonAsync<List<ProjectDto>>("api/projects") ?? new(); }
+        try { projects = await Http.GetFromJsonAsync<List<ProjectDto>>($"api/projects?includeArchived={showArchived}") ?? new(); }
         catch (Exception ex) { loadError = $"Could not load projects: {ex.Message}"; }
         finally { loading = false; }
+    }
+
+    private async Task ToggleArchivedAsync(ProjectDto p)
+    {
+        var verb = p.IsArchived ? "unarchive" : "archive";
+        try
+        {
+            var resp = await Http.PostAsync($"api/admin/projects/{p.Key}/{verb}", null);
+            if (resp.IsSuccessStatusCode)
+            {
+                Toast.Success($"{p.Name} {(p.IsArchived ? "restored" : "archived")}.");
+                await LoadProjectsAsync();
+            }
+            else
+            {
+                Toast.Error(await ApiErrors.ReadMessageAsync(resp, $"Could not {verb} the project."));
+            }
+        }
+        catch (Exception ex) { Toast.Error(ex.Message); }
     }
 
     private async Task CreateProjectAsync()
