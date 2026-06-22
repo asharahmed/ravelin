@@ -51,6 +51,8 @@
                     document.execCommand('copy'); document.body.removeChild(ta); return true;
                 } catch (e) { return false; }
             };
+            // Open the browser print dialog (compliance report -> Save as PDF).
+            window.ravelinPrint = function () { try { window.print(); } catch (e) { } };
             // Animated count-up for dashboard metrics (honours reduced-motion).
             window.ravelinCountUp = function (el, target, duration, decimals) {
                 if (!el) return;

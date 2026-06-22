@@ -8,6 +8,7 @@ using Ravelin.Components;
 using Ravelin.Endpoints;
 using Ravelin.Infrastructure;
 using Ravelin.Shared;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +18,9 @@ builder.Services.AddRazorComponents()
 
 // Liveness/readiness probe used locally and by Azure Container Apps (Stage 1).
 builder.Services.AddHealthChecks();
+
+// OpenAPI document generation (API-first: the spec is published, see /openapi/v1.json).
+builder.Services.AddOpenApi();
 
 // EF Core / Azure SQL + application services. Connection string comes from configuration
 // ("ConnectionStrings:RavelinDb"); in Azure Container Apps it's injected as the env var
@@ -107,6 +111,13 @@ app.MapStaticAssets();
 // --- API surface --------------------------------------------------------------
 // Health probe + info endpoint (anonymous).
 app.MapHealthChecks("/health");
+
+// Published OpenAPI document + an interactive API reference at /scalar. Anonymous (it's
+// documentation); the endpoints it describes stay authenticated.
+app.MapOpenApi();
+app.MapScalarApiReference(options => options
+    .WithTitle("Ravelin API")
+    .WithTheme(ScalarTheme.BluePlanet));
 
 var apiInfo = new ApiInfo(
     Name: "Ravelin",

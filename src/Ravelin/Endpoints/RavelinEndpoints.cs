@@ -401,6 +401,36 @@ public static class RavelinEndpoints
             var now = DateTimeOffset.UtcNow;
             return Results.Ok(findings.Select(f => ToDto(f, now)).ToList());
         });
+
+        // Breached (overdue) open findings, for the compliance report.
+        reads.MapGet("/report/breaches", async (RavelinDbContext db) =>
+        {
+            var now = DateTimeOffset.UtcNow;
+            var open = await db.Findings
+                .Include(f => f.Project)
+                .Where(f => f.Status == FindingStatus.Open)
+                .ToListAsync();
+
+            var breaches = open
+                .Select(f => new { f, e = SlaEvaluator.Evaluate(f, now) })
+                .Where(x => x.e.IsBreached)
+                .OrderByDescending(x => x.f.Severity)
+                .ThenBy(x => x.e.DaysRemaining)
+                .Select(x => new ReportFindingDto
+                {
+                    ProjectKey = x.f.Project!.Key,
+                    ProjectName = x.f.Project.Name,
+                    VulnerabilityId = x.f.VulnerabilityId,
+                    PackageName = x.f.PackageName,
+                    PackageVersion = x.f.PackageVersion,
+                    Severity = x.f.Severity.ToString(),
+                    DaysOverdue = -(x.e.DaysRemaining ?? 0),
+                    SlaDueAt = x.f.SlaDueAt,
+                })
+                .ToList();
+
+            return Results.Ok(breaches);
+        });
     }
 
     // --- Dashboard rollup (Stage 6) -----------------------------------------------------

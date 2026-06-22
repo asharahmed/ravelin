@@ -119,6 +119,9 @@ grype dir:. -o json     | curl -sf -X POST https://<host>/api/ingest/grype \
 | CI/CD | Azure Pipelines |
 | IaC | Terraform (remote state in Azure Storage) |
 
+The OpenAPI document is served at `/openapi/v1.json`, with an interactive API reference at
+`/scalar`.
+
 The solution keeps the domain free of infrastructure dependencies:
 
 ```
@@ -192,7 +195,7 @@ Live through Stage 6 (dashboards). Built in reviewable stages:
 | 4 | Identity + JWT + RBAC, login, self-service signup | Done |
 | 5 | SLA engine + triage | Done |
 | 6 | Dashboards | Done |
-| 7 | Point-in-time compliance report export | Planned |
+| 7 | Point-in-time compliance report (print / save as PDF) | Done |
 | 8 | DevSecOps hardening — pipeline scanners, Key Vault, managed-identity DB auth | Planned |
 
 Design rationale and the full decision log are in [`PROJECT_VISION.md`](./PROJECT_VISION.md). The

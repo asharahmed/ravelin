@@ -234,3 +234,29 @@
 @media (prefers-reduced-motion: reduce) {
     .proj-bar-fill { animation: none; }
 }
+
+/* Report action in the header */
+.dash-head-right {
+    display: flex;
+    align-items: center;
+    gap: 1.4rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+.dash-report {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: var(--brand);
+    text-decoration: none;
+    border: 1px solid color-mix(in oklch, var(--brand) 35%, var(--line-strong));
+    padding: 0.5rem 0.9rem;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.dash-report:hover {
+    background: color-mix(in oklch, var(--brand) 8%, transparent);
+    border-color: var(--brand);
+}

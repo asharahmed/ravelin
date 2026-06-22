@@ -363,3 +363,19 @@ body {
     .skeleton { animation: none; }
     .ledger-panel--interactive { transition: none; }
 }
+
+/* ── Print: a compliance report should print as a clean document, not the app ── */
+@media print {
+    .sidebar,
+    .top-row,
+    .app-foot,
+    .navbar-toggler,
+    #blazor-error-ui { display: none !important; }
+
+    html, body, .page, main { background: #fff !important; }
+    .page { display: block !important; }
+    main article.content { padding: 0 !important; }
+
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    @page { margin: 1.4cm; }
+}

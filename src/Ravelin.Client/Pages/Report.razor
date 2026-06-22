@@ -1,0 +1,171 @@
+@page "/report"
+@attribute [Authorize]
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthState
+
+<PageTitle>Compliance report — Ravelin</PageTitle>
+
+<div class="report-actions">
+    <a class="report-back" href="dashboard">← Back to dashboard</a>
+    <button class="s-btn" @onclick="PrintAsync" disabled="@loading">Print / Save as PDF</button>
+</div>
+
+@if (loading)
+{
+    <div class="s-card"><span class="skeleton" style="display:block;height:1.6rem;width:55%"></span></div>
+}
+else if (error is not null)
+{
+    <div class="s-error">@error</div>
+}
+else
+{
+    <article class="report">
+        <header class="report-head">
+            <span class="report-mark" aria-hidden="true">
+                <svg viewBox="0 0 64 64" width="34" height="34"><path d="M32 5 L59 45 L40 49.5 L32 37 L24 49.5 L5 45 Z" /></svg>
+            </span>
+            <div class="report-titles">
+                <div class="report-eyebrow">Ravelin · Vulnerability SLA &amp; compliance</div>
+                <h1 class="report-title">Compliance Report</h1>
+            </div>
+            <dl class="report-meta">
+                <div><dt>Generated</dt><dd>@generatedAt.ToString("MMMM d, yyyy · HH:mm 'UTC'")</dd></div>
+                <div><dt>Prepared by</dt><dd>@(me ?? "—")</dd></div>
+                <div><dt>Scope</dt><dd>All projects (@dash!.ProjectCount)</dd></div>
+            </dl>
+        </header>
+
+        <section class="report-summary">
+            <div class="rs-figure">
+                <div class="rs-pct">@dash!.CompliancePercent.ToString("0.#")<span>%</span></div>
+                <div class="rs-pct-label">of open findings within SLA</div>
+            </div>
+            <div class="rs-stats">
+                <div class="rs-stat"><span class="rs-num">@dash.TotalOpen</span><span class="rs-lab">Open findings</span></div>
+                <div class="rs-stat"><span class="rs-num rs-bad">@dash.Breached</span><span class="rs-lab">Breached</span></div>
+                <div class="rs-stat"><span class="rs-num rs-warn">@dash.DueSoon</span><span class="rs-lab">Due soon</span></div>
+                <div class="rs-stat"><span class="rs-num">@dash.OnTrack</span><span class="rs-lab">On track</span></div>
+            </div>
+        </section>
+
+        <section class="report-block">
+            <h2 class="report-h2">Remediation SLA policy</h2>
+            <p class="report-note">The committed remediation window for each severity. A finding is breached once its deadline — first-detected date plus the window below — has passed.</p>
+            <table class="report-table report-table--narrow">
+                <thead><tr><th>Severity</th><th>Remediation window</th></tr></thead>
+                <tbody>
+                    @foreach (var p in policy)
+                    {
+                        <tr><td>@p.Severity</td><td>@p.RemediationDays days</td></tr>
+                    }
+                </tbody>
+            </table>
+        </section>
+
+        <section class="report-block">
+            <h2 class="report-h2">Open findings by severity</h2>
+            <table class="report-table report-table--narrow">
+                <thead><tr><th>Severity</th><th>Open</th></tr></thead>
+                <tbody>
+                    <tr><td>Critical</td><td>@dash.OpenBySeverity.Critical</td></tr>
+                    <tr><td>High</td><td>@dash.OpenBySeverity.High</td></tr>
+                    <tr><td>Medium</td><td>@dash.OpenBySeverity.Medium</td></tr>
+                    <tr><td>Low</td><td>@dash.OpenBySeverity.Low</td></tr>
+                    @if (dash.OpenBySeverity.Unknown > 0)
+                    {
+                        <tr><td>Unknown</td><td>@dash.OpenBySeverity.Unknown</td></tr>
+                    }
+                </tbody>
+            </table>
+        </section>
+
+        <section class="report-block">
+            <h2 class="report-h2">Posture by project</h2>
+            <table class="report-table">
+                <thead><tr><th>Project</th><th>Open</th><th>Breached</th><th>Due soon</th><th>Compliance</th></tr></thead>
+                <tbody>
+                    @foreach (var p in dash.Projects)
+                    {
+                        <tr>
+                            <td>@p.Name <span class="report-key">@p.Key</span></td>
+                            <td>@p.Open</td>
+                            <td class="@(p.Breached > 0 ? "rs-bad" : "")">@p.Breached</td>
+                            <td>@p.DueSoon</td>
+                            <td>@p.CompliancePercent.ToString("0.#")%</td>
+                        </tr>
+                    }
+                    @if (dash.Projects.Count == 0)
+                    {
+                        <tr><td colspan="5" class="report-empty">No projects yet.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </section>
+
+        <section class="report-block report-block--break">
+            <h2 class="report-h2">SLA breaches @(breaches.Count > 0 ? $"({breaches.Count})" : "")</h2>
+            @if (breaches.Count == 0)
+            {
+                <p class="report-clear">✓ No open findings are past their remediation deadline.</p>
+            }
+            else
+            {
+                <table class="report-table">
+                    <thead><tr><th>Project</th><th>Vulnerability</th><th>Package</th><th>Severity</th><th>Days overdue</th></tr></thead>
+                    <tbody>
+                        @foreach (var f in breaches)
+                        {
+                            <tr>
+                                <td>@f.ProjectName <span class="report-key">@f.ProjectKey</span></td>
+                                <td class="report-mono">@f.VulnerabilityId</td>
+                                <td class="report-mono">@f.PackageName @f.PackageVersion</td>
+                                <td>@f.Severity</td>
+                                <td class="rs-bad">@f.DaysOverdue</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </section>
+
+        <footer class="report-foot">
+            Generated by Ravelin — a vendor-neutral vulnerability SLA &amp; compliance tracker. SLA
+            standing is evaluated as of the generation time above; each deadline derives from the
+            finding's first-detected date and the severity policy then in force.
+        </footer>
+    </article>
+}
+
+@code {
+    private DashboardDto? dash;
+    private List<SlaPolicyDto> policy = new();
+    private List<ReportFindingDto> breaches = new();
+    private bool loading = true;
+    private string? error;
+    private DateTimeOffset generatedAt = DateTimeOffset.UtcNow;
+    private string? me;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        me = auth.User.Identity?.Name;
+        try
+        {
+            var dashboardTask = Http.GetFromJsonAsync<DashboardDto>("api/dashboard");
+            var policyTask = Http.GetFromJsonAsync<List<SlaPolicyDto>>("api/sla-policies");
+            var breachTask = Http.GetFromJsonAsync<List<ReportFindingDto>>("api/report/breaches");
+            await Task.WhenAll(dashboardTask, policyTask, breachTask);
+
+            dash = await dashboardTask;
+            policy = await policyTask ?? new();
+            breaches = await breachTask ?? new();
+            generatedAt = DateTimeOffset.UtcNow;
+        }
+        catch (Exception ex) { error = $"Could not generate the report: {ex.Message}"; }
+        finally { loading = false; }
+    }
+
+    private async Task PrintAsync() => await JS.InvokeVoidAsync("ravelinPrint");
+}
