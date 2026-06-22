@@ -107,13 +107,6 @@
         };
         maskImg.src = 'earth-mask.png';
 
-        // Faint graticule so the ocean hemisphere still reads as a sphere.
-        const grat = [];
-        for (let lat = -78; lat <= 78; lat += 9) {
-            const c = Math.cos(lat * D2R), nLon = Math.max(5, Math.round(40 * c));
-            for (let j = 0; j < nLon; j++) grat.push(toVec(lat, (j / nLon) * 360 - 180));
-        }
-
         let arcs = [], lastSpawn = 0;
         function spawnArc(t) {
             if (hotspots.length < 2) return;
@@ -182,27 +175,24 @@
             const cos = Math.cos(rot), sin = Math.sin(rot), st = Math.sin(tilt), ct = Math.cos(tilt);
             const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
 
-            // atmosphere + rim
+            // atmosphere glow (outside the disc)
             const g = ctx.createRadialGradient(cx, cy, R * 0.6, cx, cy, R * 1.16);
             g.addColorStop(0, rgba(ink, 0)); g.addColorStop(0.78, rgba(ink, 0.05)); g.addColorStop(1, rgba(ink, 0));
             ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 1.16, 0, 7); ctx.fill();
-            ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.strokeStyle = rgba(ink, 0.14); ctx.lineWidth = 1; ctx.stroke();
 
-            // faint graticule (sphere form) — near hemisphere only
-            for (let i = 0; i < grat.length; i++) {
-                const pr = project(grat[i], cos, sin, st, ct, cx, cy, R);
-                if (pr.depth < 0.5) continue;                 // occlude far side
-                const nd = (pr.depth - 0.5) * 2;
-                ctx.beginPath(); ctx.arc(pr.x, pr.y, 0.5, 0, 7);
-                ctx.fillStyle = rgba(ink, 0.04 + nd * 0.10); ctx.fill();
-            }
-            // land dots (continents) — near hemisphere only, so the sphere reads as solid
+            // ocean: a clean, softly-lit sphere — no speckle. Light from the upper-left.
+            const og = ctx.createRadialGradient(cx - R * 0.42, cy - R * 0.42, R * 0.04, cx, cy, R * 1.05);
+            og.addColorStop(0, rgba(ink, 0.035)); og.addColorStop(0.7, rgba(ink, 0.085)); og.addColorStop(1, rgba(ink, 0.17));
+            ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fillStyle = og; ctx.fill();
+            ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.strokeStyle = rgba(ink, 0.16); ctx.lineWidth = 1; ctx.stroke();
+
+            // land (continents) — near hemisphere only; crisp dots over the clean ocean
             for (let i = 0; i < land.length; i++) {
                 const pr = project(land[i], cos, sin, st, ct, cx, cy, R);
                 if (pr.depth < 0.5) continue;                 // occlude far side
                 const nd = (pr.depth - 0.5) * 2;              // 0 at limb → 1 at centre
-                ctx.beginPath(); ctx.arc(pr.x, pr.y, 0.7 + nd * 1.15, 0, 7);
-                ctx.fillStyle = rgba(ink, 0.34 + nd * 0.54); ctx.fill();
+                ctx.beginPath(); ctx.arc(pr.x, pr.y, 0.75 + nd * 1.2, 0, 7);
+                ctx.fillStyle = rgba(ink, 0.45 + nd * 0.5); ctx.fill();
             }
 
             // dynamic threat arcs
