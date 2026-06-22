@@ -46,6 +46,12 @@
         </div>
     </section>
 
+    @* ───────── Integrations ───────── *@
+    <section class="integ reveal">
+        <div class="integ-head">Speaks your pipeline's language — push results from the scanners you already run.</div>
+        <IntegrationMarquee />
+    </section>
+
     @* ───────── SLA windows ribbon ───────── *@
     <section class="ribbon reveal">
         <div class="ribbon-label">Default remediation windows</div>
@@ -122,6 +128,30 @@
         </div>
     </section>
 
+    @* ───────── Compliance mapping ───────── *@
+    <section class="comply reveal">
+        <header class="sec-head">
+            <span class="ledger-eyebrow">Why it matters</span>
+            <h2 class="ledger-display sec-title">The frameworks you're audited against expect this.</h2>
+            <p class="sec-lead">
+                Nearly every modern security standard now requires vulnerabilities to be remediated
+                within defined, severity-based timeframes — and asks you to <em>prove</em> it. Ravelin
+                enforces those windows and keeps the evidence on the record.
+            </p>
+        </header>
+        <div class="comply-grid">
+            @foreach (var s in Standards)
+            {
+                <article class="std">
+                    <div class="std-badge">@s.Tag</div>
+                    <p class="std-req">@s.Req</p>
+                    <p class="std-map"><span class="std-k">Ravelin</span>@s.Map</p>
+                </article>
+            }
+        </div>
+        <p class="comply-note">Ravelin produces the SLA enforcement and audit evidence these controls call for. It doesn't grant certification — your auditor does.</p>
+    </section>
+
     @* ───────── Features ───────── *@
     <section class="features reveal">
         <header class="sec-head">
@@ -164,6 +194,29 @@
         new("High", 30, "win--high"),
         new("Medium", 90, "win--medium"),
         new("Low", 180, "win--low"),
+    ];
+
+    private record Standard(string Tag, string Req, string Map);
+    private static readonly Standard[] Standards =
+    [
+        new("PCI DSS 4.0",
+            "Req. 6.3.3 — remediate vulnerabilities within timeframes set by their severity ranking.",
+            "Every finding inherits a severity-based deadline; breaches are flagged the moment they pass."),
+        new("ISO/IEC 27001:2022",
+            "Annex A 8.8 — manage technical vulnerabilities on a defined, risk-based timeline.",
+            "Per-severity windows, re-baselined when policy changes, with a complete audit trail."),
+        new("SOC 2",
+            "CC7.1 — detect, evaluate, and remediate vulnerabilities, and show the evidence.",
+            "Compliance trend over time plus a written justification on every suppression."),
+        new("NIST SP 800-218 · SSDF",
+            "RV.1–RV.2 — identify, prioritise, and remediate vulnerabilities by risk.",
+            "Severity-driven prioritisation and opened-vs-resolved tracking, per project."),
+        new("CVSS · NVD",
+            "Score vulnerabilities by severity to drive remediation priority.",
+            "CVSS severity maps straight onto Critical / High / Medium / Low SLA tiers."),
+        new("CISA KEV",
+            "Give known-exploited vulnerabilities the shortest path to a fix.",
+            "Critical findings carry the tightest window — seven days by default."),
     ];
 
     private record Feature(string Title, string Body, string Icon);

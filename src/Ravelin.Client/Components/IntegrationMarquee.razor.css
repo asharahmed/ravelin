@@ -1,0 +1,56 @@
+.marq {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    /* fade the edges into the page */
+    -webkit-mask: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+    mask: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+}
+
+.marq-track {
+    display: flex;
+    width: max-content;
+    gap: clamp(1.8rem, 4vw, 3.4rem);
+    padding: 0.4rem 0;
+    animation: marq-scroll 38s linear infinite;
+}
+.marq:hover .marq-track { animation-play-state: paused; }
+
+@keyframes marq-scroll {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+}
+
+.marq-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex: 0 0 auto;
+    color: var(--ink-faint);
+    transition: color 0.18s ease, transform 0.18s ease;
+}
+.marq-item:hover {
+    color: var(--ink);
+    transform: translateY(-2px);
+}
+.marq-item svg { display: block; opacity: 0.9; }
+.marq-name {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .marq { -webkit-mask: none; mask: none; }
+    .marq-track {
+        animation: none;
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 1.2rem 2.2rem;
+    }
+    /* the duplicate track is redundant when wrapped */
+    .marq-track .marq-item[aria-hidden="true"] { display: none; }
+}
