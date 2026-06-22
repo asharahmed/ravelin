@@ -1,0 +1,18 @@
+/* Self-hosted type — owned and served by Ravelin, not a third-party CDN.
+   Files in /fonts (WOFF2, latin subset). */
+
+/* Zilla Slab — display, titles, figures, wordmark fallback. */
+@font-face { font-family: 'Zilla Slab'; font-style: normal; font-weight: 400; font-display: swap; src: url('fonts/zilla-slab-400.woff2') format('woff2'); }
+@font-face { font-family: 'Zilla Slab'; font-style: normal; font-weight: 500; font-display: swap; src: url('fonts/zilla-slab-500.woff2') format('woff2'); }
+@font-face { font-family: 'Zilla Slab'; font-style: normal; font-weight: 600; font-display: swap; src: url('fonts/zilla-slab-600.woff2') format('woff2'); }
+@font-face { font-family: 'Zilla Slab'; font-style: normal; font-weight: 700; font-display: swap; src: url('fonts/zilla-slab-700.woff2') format('woff2'); }
+
+/* Hanken Grotesk — UI, body, labels, data. */
+@font-face { font-family: 'Hanken Grotesk'; font-style: normal; font-weight: 400; font-display: swap; src: url('fonts/hanken-grotesk-400.woff2') format('woff2'); }
+@font-face { font-family: 'Hanken Grotesk'; font-style: normal; font-weight: 500; font-display: swap; src: url('fonts/hanken-grotesk-500.woff2') format('woff2'); }
+@font-face { font-family: 'Hanken Grotesk'; font-style: normal; font-weight: 600; font-display: swap; src: url('fonts/hanken-grotesk-600.woff2') format('woff2'); }
+@font-face { font-family: 'Hanken Grotesk'; font-style: normal; font-weight: 700; font-display: swap; src: url('fonts/hanken-grotesk-700.woff2') format('woff2'); }
+
+/* Geist Mono — code identifiers. */
+@font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url('fonts/geist-mono-400.woff2') format('woff2'); }
+@font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 500; font-display: swap; src: url('fonts/geist-mono-500.woff2') format('woff2'); }

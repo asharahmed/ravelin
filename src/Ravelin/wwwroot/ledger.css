@@ -1,143 +1,261 @@
 /* ============================================================================
-   Ravelin — "Compliance Ledger" design system
-   Editorial, light-first, semantic severity colour. Dark-mode via data-bs-theme.
-   Tokens here; component layout lives in scoped .razor.css files.
+   Ravelin — "The Register" design system
+   A security posture kept like books: ruled sheets, ink figures, and breaches
+   written in red. Black ink = settled, red ink = overdue, amber = aging.
+   Display: Libre Caslon (the official-document serif). Data/labels: IBM Plex Mono.
+   Tokens + primitives here; component layout lives in scoped .razor.css files.
    ============================================================================ */
 
 :root {
-    --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
-    --font-body: 'Archivo', -apple-system, BlinkMacSystemFont, sans-serif;
+    /* Zilla Slab — an engineered slab serif (Mozilla); the distinctive, technical
+       "engineering document" voice for display, titles, figures and the wordmark.
+       Hanken Grotesk — a quiet, readable workhorse for UI/data, so the slab leads.
+       Geist Mono — a clean technical mono for code tokens (CVE ids, package@version). */
+    --font-display: 'Zilla Slab', 'Roboto Slab', Georgia, serif;
+    --font-text: 'Hanken Grotesk', system-ui, sans-serif;
+    --font-mono: 'Hanken Grotesk', system-ui, sans-serif;
+    --font-code: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    --font-body: var(--font-mono);
 
-    /* Warm paper + cool slate ink — the audit-report base. */
-    --paper: oklch(0.992 0.004 95);
-    --surface: oklch(0.985 0.006 95);
-    --surface-raised: oklch(1 0 0);
-    --ink: oklch(0.24 0.024 268);
-    --ink-soft: oklch(0.46 0.02 268);
-    --ink-faint: oklch(0.60 0.016 268);
-    --line: oklch(0.90 0.008 268);
-    --line-strong: oklch(0.82 0.01 268);
+    /* Aged paper + blue-black fountain ink. */
+    --paper: oklch(0.969 0.014 84);
+    --surface: oklch(0.958 0.016 84);
+    --surface-raised: oklch(0.988 0.009 84);
+    --ink: oklch(0.255 0.034 252);
+    --ink-soft: oklch(0.435 0.034 252);
+    /* Darkened from 0.575 so small mono labels clear WCAG AA (4.5:1) on paper. */
+    --ink-faint: oklch(0.505 0.032 252);
+    --line: oklch(0.815 0.022 252);
+    --line-strong: oklch(0.66 0.03 252);
 
-    /* The "seal" — a single confident oxblood accent. */
-    --brand: oklch(0.46 0.13 22);
-    --brand-soft: oklch(0.56 0.12 22);
-    --brand-tint: oklch(0.96 0.02 22);
+    /* Sidebar — a clean, neutral panel tone. */
+    --margin: oklch(0.945 0.004 256);
+    --margin-line: oklch(0.86 0.008 256);
 
-    /* Semantic severity scale (colour carries meaning, not decoration). */
-    --sev-critical: oklch(0.54 0.20 25);
-    --sev-high: oklch(0.65 0.17 52);
-    --sev-medium: oklch(0.76 0.13 82);
-    --sev-low: oklch(0.62 0.07 242);
-    --sev-unknown: oklch(0.70 0.01 268);
+    /* The seal — an oxblood-red wax mark. Also the link/brand colour. */
+    --brand: oklch(0.47 0.17 28);
+    --brand-soft: oklch(0.54 0.18 28);
+    --brand-tint: oklch(0.93 0.04 28);
 
-    /* SLA states. */
-    --sla-ontrack: oklch(0.60 0.13 158);
-    --sla-duesoon: oklch(0.75 0.14 76);
-    --sla-breached: oklch(0.54 0.20 25);
+    /* Ledger inks. Red = in the red (overdue/breach). Amber = aging. */
+    --red: oklch(0.505 0.20 28);
+    --amber: oklch(0.62 0.13 66);
 
-    --shadow-sm: 0 1px 2px oklch(0.24 0.024 268 / 0.05), 0 1px 1px oklch(0.24 0.024 268 / 0.04);
-    --shadow-md: 0 2px 4px oklch(0.24 0.024 268 / 0.04), 0 12px 28px oklch(0.24 0.024 268 / 0.07);
-    --radius: 14px;
-    --radius-sm: 9px;
+    /* Severity — earthen ink scale, not bright UI colour. */
+    --sev-critical: oklch(0.48 0.21 27);
+    --sev-high: oklch(0.56 0.16 42);
+    --sev-medium: oklch(0.62 0.12 66);
+    --sev-low: oklch(0.46 0.05 252);
+    --sev-unknown: oklch(0.58 0.012 252);
+
+    /* SLA states — settled in black, overdue in red, aging in amber. No green. */
+    --sla-ontrack: oklch(0.32 0.04 252);
+    --sla-duesoon: var(--amber);
+    --sla-breached: var(--red);
+
+    --shadow-sm: none;
+    --shadow-md: 0 10px 26px oklch(0.255 0.034 252 / 0.12);
+    --radius: 0px;
+    --radius-sm: 0px;
+
+    /* Spacing scale — a 4px base; every gap/pad should resolve to one of these. */
+    --space-1: 0.25rem;   /* 4  */
+    --space-2: 0.5rem;    /* 8  */
+    --space-3: 0.75rem;   /* 12 */
+    --space-4: 1rem;      /* 16 */
+    --space-5: 1.5rem;    /* 24 */
+    --space-6: 2.5rem;    /* 40 */
+    --space-7: 4rem;      /* 64 */
+
+    /* Motion — one easing for entrances, one for symmetrical transitions; three durations. */
+    --ease: var(--ease);
+    --ease-inout: cubic-bezier(0.4, 0, 0.2, 1);
+    --dur-fast: 0.12s;
+    --dur: 0.2s;
+    --dur-slow: 0.5s;
+
+    /* The ruling of the page — faint accounting-paper lines. */
+    --rule-ink: oklch(0.255 0.034 252 / 0.05);
 }
 
 [data-bs-theme="dark"] {
-    --paper: oklch(0.185 0.016 268);
-    --surface: oklch(0.215 0.018 268);
-    --surface-raised: oklch(0.245 0.02 268);
-    --ink: oklch(0.95 0.01 95);
-    --ink-soft: oklch(0.80 0.014 268);
-    --ink-faint: oklch(0.64 0.014 268);
-    --line: oklch(0.32 0.02 268);
-    --line-strong: oklch(0.40 0.022 268);
+    /* The night ledger — deep ink paper, parchment figures. */
+    --paper: oklch(0.205 0.026 256);
+    --surface: oklch(0.183 0.024 256);
+    --surface-raised: oklch(0.246 0.026 256);
+    --ink: oklch(0.93 0.022 84);
+    --ink-soft: oklch(0.775 0.02 256);
+    --ink-faint: oklch(0.62 0.02 256);
+    --line: oklch(0.36 0.025 256);
+    --line-strong: oklch(0.50 0.03 256);
 
-    --brand: oklch(0.72 0.13 26);
-    --brand-soft: oklch(0.66 0.13 24);
-    --brand-tint: oklch(0.30 0.05 22);
+    --margin: oklch(0.175 0.02 256);
+    --margin-line: oklch(0.32 0.022 256);
 
-    --sev-critical: oklch(0.66 0.19 27);
-    --sev-high: oklch(0.74 0.15 55);
-    --sev-medium: oklch(0.82 0.13 85);
-    --sev-low: oklch(0.70 0.09 245);
-    --sev-unknown: oklch(0.62 0.012 268);
+    --brand: oklch(0.66 0.18 28);
+    --brand-soft: oklch(0.72 0.17 28);
+    --brand-tint: oklch(0.30 0.07 28);
 
-    --sla-ontrack: oklch(0.70 0.14 158);
-    --sla-duesoon: oklch(0.80 0.14 80);
-    --sla-breached: oklch(0.66 0.19 27);
+    --red: oklch(0.64 0.20 28);
+    --amber: oklch(0.74 0.13 70);
 
-    --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.3);
-    --shadow-md: 0 2px 4px oklch(0 0 0 / 0.25), 0 14px 32px oklch(0 0 0 / 0.40);
+    --sev-critical: oklch(0.64 0.20 27);
+    --sev-high: oklch(0.68 0.16 45);
+    --sev-medium: oklch(0.74 0.13 70);
+    --sev-low: oklch(0.66 0.07 252);
+    --sev-unknown: oklch(0.62 0.012 256);
+
+    --sla-ontrack: oklch(0.82 0.02 84);
+    --sla-duesoon: var(--amber);
+    --sla-breached: var(--red);
+
+    --shadow-sm: none;
+    --shadow-md: 0 12px 30px oklch(0 0 0 / 0.45);
+    --rule-ink: oklch(0.93 0.022 84 / 0.05);
 }
 
 body {
     background-color: var(--paper);
     color: var(--ink);
-    font-family: var(--font-body);
-    font-feature-settings: "ss01", "cv01";
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
 }
 
-/* ---- Shared editorial primitives ------------------------------------------ */
+/* Selection + focus carry the seal red. */
+::selection {
+    background: color-mix(in oklch, var(--brand) 24%, transparent);
+    color: var(--ink);
+}
+:focus-visible {
+    outline: 2px solid color-mix(in oklch, var(--brand) 60%, transparent);
+    outline-offset: 2px;
+    border-radius: 1px;
+}
+:focus:not(:focus-visible) { outline: none; }
 
-.ledger-eyebrow {
-    font-family: var(--font-body);
-    font-size: 0.72rem;
+/* Square, ruled scrollbars. */
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border: 3px solid transparent;
+    background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); background-clip: content-box; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ---- Register primitives --------------------------------------------------- */
+
+/* Labels — quiet running heads. */
+.ledger-eyebrow, .led-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
     font-weight: 600;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.07em;
     text-transform: uppercase;
     color: var(--ink-faint);
 }
 
-.ledger-display {
+/* Zilla Slab display — mastheads and titles. */
+.ledger-display, .led-display {
     font-family: var(--font-display);
-    font-optical-sizing: auto;
     font-weight: 600;
-    letter-spacing: -0.015em;
+    letter-spacing: -0.005em;
     color: var(--ink);
-    line-height: 1.05;
+    line-height: 1.06;
 }
 
-.ledger-num {
-    font-family: var(--font-display);
+/* Caslon text — running prose (leads, descriptions). */
+.led-prose {
+    font-family: var(--font-text);
+    font-size: 1.02rem;
+    line-height: 1.6;
+    color: var(--ink-soft);
+}
+
+/* Mono figures — every number in the book. */
+.ledger-num, .led-figure {
+    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums lining-nums;
-    font-feature-settings: "tnum" 1;
-    letter-spacing: -0.02em;
+    font-feature-settings: "tnum" 1, "zero" 1;
+    letter-spacing: -0.01em;
 }
 
-.ledger-rule {
+/* Rules — single hairline and the double-rule used to open a section. */
+.ledger-rule, .rule {
     border: 0;
     border-top: 1px solid var(--line);
     margin: 0;
 }
-
-/* Panels: hairline-defined, barely-raised — not generic drop-shadow cards. */
-.ledger-panel {
-    background: var(--surface-raised);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-sm);
+.rule-double {
+    border: 0;
+    border-top: 1px solid var(--line-strong);
+    margin: 0;
 }
 
-/* Severity + SLA chips. */
+/* Dot leaders — a label, a run of dots, a right-aligned figure.
+   The signature register device (label · · · · · value). */
+.dot-leader {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5ch;
+    width: 100%;
+    font-variant-numeric: tabular-nums;
+}
+.dot-leader > .leader-label { flex: 0 0 auto; color: var(--ink-soft); }
+.dot-leader > .leader-fill {
+    flex: 1 1 auto;
+    align-self: stretch;
+    border-bottom: 1px dotted var(--line-strong);
+    transform: translateY(-0.28em);
+    min-width: 1.5ch;
+}
+.dot-leader > .leader-value {
+    flex: 0 0 auto;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--ink);
+}
+
+/* Folio / entry number — the marginal index of a ledger line. */
+.entry-no {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    color: var(--ink-faint);
+}
+
+/* Sheets — a leaf of the register. Flat, square, ink-bordered, opened by a
+   double rule at the head. Not a floating rounded card. */
+.ledger-panel, .led-sheet {
+    background: var(--surface-raised);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+}
+
+/* Status tags — squared mono marks, not pills. Colour carries the ledger ink. */
 .chip {
     display: inline-flex;
     align-items: center;
-    gap: 0.4em;
-    font-size: 0.74rem;
+    gap: 0.45em;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
     font-weight: 600;
-    letter-spacing: 0.02em;
-    padding: 0.18em 0.6em;
-    border-radius: 999px;
-    border: 1px solid color-mix(in oklch, var(--chip-color) 35%, transparent);
-    color: color-mix(in oklch, var(--chip-color) 78%, var(--ink));
-    background: color-mix(in oklch, var(--chip-color) 12%, var(--surface-raised));
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.2em 0.5em;
+    border-radius: var(--radius-sm);
+    border: 1px solid color-mix(in oklch, var(--chip-color) 50%, transparent);
+    color: color-mix(in oklch, var(--chip-color) 82%, var(--ink));
+    background: color-mix(in oklch, var(--chip-color) 9%, var(--surface-raised));
     white-space: nowrap;
 }
 .chip::before {
     content: "";
-    width: 0.5em;
-    height: 0.5em;
-    border-radius: 50%;
+    width: 0.45em;
+    height: 0.45em;
     background: var(--chip-color);
 }
 
@@ -151,15 +269,97 @@ body {
 .sla-breached { --chip-color: var(--sla-breached); }
 .sla-notapplicable { --chip-color: var(--sev-unknown); }
 
-/* Staggered page-load reveal. */
+/* Interactive sheets — square hover (no float). */
+.ledger-panel--interactive {
+    transition: border-color 0.15s ease, box-shadow 0.18s ease;
+}
+.ledger-panel--interactive:hover {
+    border-color: var(--ink-faint);
+    box-shadow: var(--shadow-md);
+}
+
+/* Buttons — the seal (filled ink) and the quiet (ruled). Squared, mono, struck. */
+.seal-btn, .quiet-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5em;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 0.82rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform 0.1s ease, filter 0.15s ease,
+                background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.seal-btn {
+    background: var(--ink);
+    color: var(--paper);
+    border: 1px solid var(--ink);
+}
+.seal-btn:hover:not(:disabled) { filter: brightness(1.35); }
+.seal-btn:active:not(:disabled) { transform: translateY(1px); filter: brightness(1.2); }
+.quiet-btn {
+    background: transparent;
+    color: var(--ink-soft);
+    border: 1px solid var(--line-strong);
+}
+.quiet-btn:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
+.quiet-btn:active:not(:disabled) { transform: translateY(1px); }
+.seal-btn:disabled, .quiet-btn:disabled { opacity: 0.55; cursor: default; }
+
+/* Auth gate states (rendered by the router, outside any page's scoped CSS). */
+.access-notice {
+    max-width: 50ch;
+    padding: clamp(2.2rem, 8vh, 5rem) 0;
+}
+.access-title { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.9rem, 5vw, 3rem); margin: 0.4rem 0 0.9rem; }
+.access-lead { font-family: var(--font-text); font-size: 1.02rem; color: var(--ink-soft); line-height: 1.6; margin: 0 0 1.7rem; }
+.access-btn { padding: 0.7rem 1.4rem; }
+
+.access-authorizing {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 2.5rem 0;
+    color: var(--ink-faint);
+    font-size: 0.9rem;
+}
+.access-spinner {
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid var(--line-strong);
+    border-top-color: var(--brand);
+    animation: access-spin 0.7s linear infinite;
+}
+@keyframes access-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .access-spinner { animation-duration: 2s; } }
+
+/* Page-load reveal — a single quiet settle. */
 @keyframes ledger-rise {
-    from { opacity: 0; transform: translateY(10px); }
+    from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: none; }
 }
-.ledger-rise {
-    animation: ledger-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+.ledger-rise { animation: ledger-rise 0.5s var(--ease) both; }
+
+@keyframes ledger-shimmer { to { background-position: -200% 0; } }
+.skeleton {
+    border-radius: var(--radius-sm);
+    background: linear-gradient(
+        100deg,
+        color-mix(in oklch, var(--ink) 6%, transparent) 30%,
+        color-mix(in oklch, var(--ink) 11%, transparent) 50%,
+        color-mix(in oklch, var(--ink) 6%, transparent) 70%);
+    background-size: 200% 100%;
+    animation: ledger-shimmer 1.4s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
     .ledger-rise { animation: none; }
+    .skeleton { animation: none; }
+    .ledger-panel--interactive { transition: none; }
 }
