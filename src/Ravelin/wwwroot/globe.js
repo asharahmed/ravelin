@@ -65,12 +65,15 @@
         const ctx = canvas.getContext('2d');
 
         // Even sphere sample; we keep the points that fall on land.
-        const sampleSphere = fibSphere(30000);
+        // NOTE: longitude is negated. The camera is at +Z (right-handed, +X = screen
+        // right), so on the front hemisphere azimuth atan2(z,x) runs right→left. Mapping
+        // texture longitude straight to azimuth mirrors the Earth east-west; negating fixes it.
+        const sampleSphere = fibSphere(60000);
         const buildLand = (sample) => {
             const out = [];
             for (let i = 0; i < sampleSphere.length; i++) {
                 const p = sampleSphere[i];
-                const lat = Math.asin(p[1]) / D2R, lon = Math.atan2(p[2], p[0]) / D2R;
+                const lat = Math.asin(p[1]) / D2R, lon = -Math.atan2(p[2], p[0]) / D2R;
                 if (sample(lat, lon)) out.push(p);
             }
             return out;
@@ -185,18 +188,21 @@
             ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 1.16, 0, 7); ctx.fill();
             ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.strokeStyle = rgba(ink, 0.14); ctx.lineWidth = 1; ctx.stroke();
 
-            // faint graticule (sphere form)
+            // faint graticule (sphere form) — near hemisphere only
             for (let i = 0; i < grat.length; i++) {
                 const pr = project(grat[i], cos, sin, st, ct, cx, cy, R);
-                ctx.beginPath(); ctx.arc(pr.x, pr.y, 0.5 + pr.depth * 0.5, 0, 7);
-                ctx.fillStyle = rgba(ink, 0.03 + pr.depth * pr.depth * 0.14); ctx.fill();
+                if (pr.depth < 0.5) continue;                 // occlude far side
+                const nd = (pr.depth - 0.5) * 2;
+                ctx.beginPath(); ctx.arc(pr.x, pr.y, 0.5, 0, 7);
+                ctx.fillStyle = rgba(ink, 0.04 + nd * 0.10); ctx.fill();
             }
-            // land dots (continents) — strong depth contrast
+            // land dots (continents) — near hemisphere only, so the sphere reads as solid
             for (let i = 0; i < land.length; i++) {
                 const pr = project(land[i], cos, sin, st, ct, cx, cy, R);
-                const d = pr.depth;
-                ctx.beginPath(); ctx.arc(pr.x, pr.y, 0.5 + d * d * 1.6, 0, 7);
-                ctx.fillStyle = rgba(ink, 0.06 + d * d * 0.78); ctx.fill();
+                if (pr.depth < 0.5) continue;                 // occlude far side
+                const nd = (pr.depth - 0.5) * 2;              // 0 at limb → 1 at centre
+                ctx.beginPath(); ctx.arc(pr.x, pr.y, 0.7 + nd * 1.15, 0, 7);
+                ctx.fillStyle = rgba(ink, 0.34 + nd * 0.54); ctx.fill();
             }
 
             // dynamic threat arcs
