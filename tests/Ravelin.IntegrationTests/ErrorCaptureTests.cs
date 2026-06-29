@@ -25,8 +25,7 @@ public sealed class ErrorCaptureTests(RavelinFixture fixture) : IAsyncLifetime
         using var client = fixture.CreateClient();
         const string secret = "rvln_supersecretvalue1234567890";
 
-        var first = await client.GetAsync($"{ThrowRoute}?token={secret}");
-        Assert.True((int)first.StatusCode >= 500); // unhandled -> server-error response, unchanged
+        await TriggerThrowAsync(client, $"{ThrowRoute}?token={secret}");
 
         var error = await PollForErrorAsync();
         Assert.NotNull(error);
@@ -41,10 +40,27 @@ public sealed class ErrorCaptureTests(RavelinFixture fixture) : IAsyncLifetime
         Assert.Contains("[redacted]", error.Message!);
 
         // Same fault again -> still one row (SingleOrDefault would throw on a duplicate), count++.
-        await client.GetAsync($"{ThrowRoute}?token={secret}");
+        await TriggerThrowAsync(client, $"{ThrowRoute}?token={secret}");
         var deduped = await PollForErrorAsync(minOccurrences: 2);
         Assert.NotNull(deduped);
         Assert.Equal(2, deduped!.Occurrences);
+    }
+
+    // Hits the deliberately-throwing endpoint. A real server (Kestrel) returns 500; the in-memory
+    // TestServer instead surfaces the unhandled exception to the caller. Either way the request
+    // failed unhandled — and the capture middleware, below the exception handler, recorded it
+    // before the rethrow. What this test asserts is that recording, not the response shape.
+    private static async Task TriggerThrowAsync(HttpClient client, string url)
+    {
+        try
+        {
+            var response = await client.GetAsync(url);
+            Assert.True((int)response.StatusCode >= 500);
+        }
+        catch (InvalidOperationException)
+        {
+            // Expected under TestServer: the deliberate test exception is rethrown to the caller.
+        }
     }
 
     // Capture runs in its own DB scope; poll briefly for the committed row to avoid flakiness.
