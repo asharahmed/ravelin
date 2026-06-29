@@ -25,6 +25,11 @@ public static class DependencyInjection
         services.AddSingleton<NotificationService>();
         services.AddSingleton<SlaReEvaluator>();
 
+        // Error capture: dedup + persist unhandled exceptions. The issue tracker is a no-op until
+        // a real (config-gated) one is registered in the capture→Linear delivery stage.
+        services.AddSingleton<IIssueTracker, NullIssueTracker>();
+        services.AddSingleton<AppErrorService>();
+
         return services;
     }
 }
