@@ -278,3 +278,7 @@ app.MapRazorComponents<App>()
     .AllowAnonymous();
 
 app.Run();
+
+// Top-level statements compile to an internal Program class. Expose it as public so the
+// integration test project can drive the real host via WebApplicationFactory<Program>.
+public partial class Program;

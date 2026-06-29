@@ -94,8 +94,8 @@ curl -X POST https://<host>/api/ingest \
 # -> { "scanId": "...", "created": 1, "reopened": 0, "resolved": 0, "seen": 0, "openTotal": 1 }
 ```
 
-Or pipe a scanner's native output straight in — Ravelin maps Trivy and Grype JSON itself, no
-transform step:
+Or pipe a scanner's native output straight in — Ravelin maps Trivy, Grype, and `dotnet list
+package` JSON itself, no transform step:
 
 ```bash
 trivy fs --format json . | curl -sf -X POST https://<host>/api/ingest/trivy \
@@ -103,7 +103,15 @@ trivy fs --format json . | curl -sf -X POST https://<host>/api/ingest/trivy \
 
 grype dir:. -o json     | curl -sf -X POST https://<host>/api/ingest/grype \
   -H "X-Api-Key: $RAVELIN_API_KEY" --data-binary @-
+
+dotnet list package --vulnerable --include-transitive --format json \
+  | curl -sf -X POST https://<host>/api/ingest/dotnet \
+    -H "X-Api-Key: $RAVELIN_API_KEY" --data-binary @-
 ```
+
+Ravelin **eats its own dog food**: its CI (`.github/workflows/security.yml`) pushes the app's own
+`dotnet list package --vulnerable` results to the live instance through that last endpoint, so the
+demo tracks Ravelin's own dependency-remediation SLAs.
 
 ## Authentication
 

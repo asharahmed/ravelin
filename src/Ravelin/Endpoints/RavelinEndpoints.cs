@@ -191,6 +191,16 @@ public static class RavelinEndpoints
                 .RequireAuthenticatedUser())
             .RequireRateLimiting("ingest")
             .DisableAntiforgery();
+
+        // `dotnet list package --vulnerable --include-transitive --format json` — drives the
+        // dogfood loop: the app's own pipeline pushes its NuGet dependency vulns to Ravelin.
+        app.MapPost("/api/ingest/dotnet", (HttpRequest http, ClaimsPrincipal user, IngestionService ingestion) =>
+                IngestRawAsync(http, user, ingestion, "dotnet", DotnetListAdapter.Parse))
+            .RequireAuthorization(policy => policy
+                .AddAuthenticationSchemes(ApiKeyAuthenticationHandler.SchemeName)
+                .RequireAuthenticatedUser())
+            .RequireRateLimiting("ingest")
+            .DisableAntiforgery();
     }
 
     // Reads a raw scanner report from the body, maps it with the given adapter, and ingests
