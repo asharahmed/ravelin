@@ -20,6 +20,7 @@ public class RavelinDbContext(DbContextOptions<RavelinDbContext> options)
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<FindingAlert> FindingAlerts => Set<FindingAlert>();
+    public DbSet<AppError> AppErrors => Set<AppError>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

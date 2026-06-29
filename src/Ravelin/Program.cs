@@ -197,6 +197,10 @@ app.UseWhen(
     branch => branch.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true));
 app.UseHttpsRedirection();
 
+// Capture unhandled exceptions into the AppError store. Sits below the exception handler so it
+// records the fault first, then rethrows for the normal error response. Best-effort; never masks.
+app.UseMiddleware<Ravelin.Middleware.ErrorCaptureMiddleware>();
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
@@ -259,6 +263,17 @@ app.MapPost("/api/internal/reevaluate", async (
     });
 })
 .DisableAntiforgery();
+
+// Test-only: a route that throws an unhandled exception so the error-capture pipeline can be
+// exercised end-to-end (integration tests). NEVER mapped in Production. The token is echoed into
+// the message purely to prove secret-scrubbing on the way into the AppError store.
+if (!app.Environment.IsProduction())
+{
+    app.MapGet("/api/_test/throw", (string? token) =>
+    {
+        throw new InvalidOperationException($"Intentional test exception (token={token}).");
+    }).AllowAnonymous();
+}
 
 // Unmapped /api/* paths return a real 404 (JSON problem), not the Blazor SPA shell, so API
 // consumers hitting a wrong route get a proper status instead of HTML.
