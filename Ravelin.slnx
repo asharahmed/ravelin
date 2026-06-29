@@ -8,5 +8,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Ravelin.Tests/Ravelin.Tests.csproj" />
+    <Project Path="tests/Ravelin.IntegrationTests/Ravelin.IntegrationTests.csproj" />
+    <Project Path="tests/Ravelin.E2ETests/Ravelin.E2ETests.csproj" />
   </Folder>
 </Solution>

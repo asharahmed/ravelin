@@ -26,6 +26,11 @@ jobs:
   build-test:
     name: Build, test & dependency scan
     runs-on: ubuntu-latest
+    # Exposed as an env var (not just a secret) so the dogfood step's `if:` can test for its
+    # presence. Empty on fork PRs (secrets aren't shared), which skips the push — never blocks
+    # external contributors.
+    env:
+      RAVELIN_INGEST_KEY: ${{ secrets.RAVELIN_INGEST_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -35,13 +40,72 @@ jobs:
       - run: dotnet build Ravelin.slnx -c Release --no-restore
       - run: dotnet test Ravelin.slnx -c Release --no-build --verbosity normal
       - name: Dependency scan (SCA)
+        id: sca
         run: |
           set -o pipefail
+          # Human-readable for the log; machine-readable for the dogfood push below.
           dotnet list Ravelin.slnx package --vulnerable --include-transitive 2>&1 | tee sca.txt
+          dotnet list Ravelin.slnx package --vulnerable --include-transitive --format json > sca.json
+      - name: Dogfood — push self-scan to Ravelin
+        # Records the app's OWN dependency vulns in the live tracker, so getravelin.xyz shows
+        # Ravelin holding itself to the same remediation SLAs ("eats its own dog food",
+        # PROJECT_VISION §9). Runs even when the build is about to fail the gate below, so the
+        # finding is recorded regardless. Non-fatal: a delivery hiccup never breaks CI.
+        if: ${{ always() && env.RAVELIN_INGEST_KEY != '' }}
+        run: |
+          curl -fsS -X POST "https://getravelin.xyz/api/ingest/dotnet" \
+            -H "X-Api-Key: ${RAVELIN_INGEST_KEY}" \
+            -H "Content-Type: application/json" \
+            --data-binary @sca.json \
+            --max-time 60 --retry 3 --retry-connrefused \
+            && echo "Pushed self-scan to Ravelin." \
+            || echo "::warning::Could not push self-scan to Ravelin (non-fatal)."
+      - name: Fail on vulnerable packages
+        # The accountability gate stays as-is — record first (above), then fail the build.
+        if: ${{ always() && steps.sca.outcome == 'success' }}
+        run: |
           if grep -qiE "has the following vulnerable" sca.txt; then
             echo "::error::Vulnerable NuGet packages detected"; exit 1
           fi
           echo "No vulnerable packages."
+
+  integration-tests:
+    name: Integration tests (real SQL via Testcontainers)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet restore tests/Ravelin.IntegrationTests/Ravelin.IntegrationTests.csproj
+      - name: Run integration tests
+        # Testcontainers spins up a throwaway SQL Server in Docker (preinstalled on GitHub-hosted
+        # runners), so these drive the REAL ASP.NET Core pipeline (auth → ingestion → EF Core)
+        # against a REAL database — not an in-memory fake. This is the verification substrate the
+        # auto-fix loop will gate on: a fix isn't "done" until it's green here, end to end.
+        run: dotnet test tests/Ravelin.IntegrationTests/Ravelin.IntegrationTests.csproj -c Release
+
+  e2e-tests:
+    name: E2E (Playwright vs live app + real SQL)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Publish the host
+        # The E2E fixture launches THIS as its own process (real Kestrel, serving the WASM bundle)
+        # against a Testcontainers SQL Server, then drives it with a real browser.
+        run: dotnet publish src/Ravelin/Ravelin.csproj -c Release -o ${{ github.workspace }}/e2e-publish
+      - name: Build E2E project
+        run: dotnet build tests/Ravelin.E2ETests/Ravelin.E2ETests.csproj -c Release
+      - name: Install Playwright Chromium
+        # The build emits playwright.ps1; pwsh is preinstalled on GitHub-hosted runners.
+        run: pwsh tests/Ravelin.E2ETests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+      - name: Run E2E tests
+        env:
+          RAVELIN_E2E_APP_DLL: ${{ github.workspace }}/e2e-publish/Ravelin.dll
+        run: dotnet test tests/Ravelin.E2ETests/Ravelin.E2ETests.csproj -c Release --no-build
 
   codeql:
     name: CodeQL (C# SAST)
