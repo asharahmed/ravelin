@@ -74,6 +74,9 @@ builder.Services.AddRateLimiter(options =>
 // ("ConnectionStrings:RavelinDb"); in Azure Container Apps it's injected as the env var
 // ConnectionStrings__RavelinDb (a secret). Migrations are applied out-of-band.
 builder.Services.AddRavelinInfrastructure(builder.Configuration.GetConnectionString("RavelinDb"));
+// Files captured errors as Linear issues when Linear:ApiKey + Linear:TeamId are configured;
+// otherwise inert (no-op tracker). The capture pipeline works with or without it.
+builder.Services.AddLinearIssueTracker(builder.Configuration);
 
 // Outbound webhook/Slack delivery for SLA alerts (short timeout; failures are swallowed).
 builder.Services.AddHttpClient("webhooks", c => c.Timeout = TimeSpan.FromSeconds(5));
