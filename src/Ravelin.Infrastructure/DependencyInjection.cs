@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Ravelin.Infrastructure.Services;
 
 namespace Ravelin.Infrastructure;
@@ -30,6 +32,28 @@ public static class DependencyInjection
         services.AddSingleton<IIssueTracker, NullIssueTracker>();
         services.AddSingleton<AppErrorService>();
 
+        return services;
+    }
+
+    /// <summary>
+    /// Wires Linear as the issue tracker for captured errors — but only when Linear:ApiKey and
+    /// Linear:TeamId are configured. Otherwise it does nothing and the no-op NullIssueTracker
+    /// stays, so the capture path is fully functional with no Linear secret present (the same
+    /// "config-gated, inert by default" shape as the dogfood ingest key).
+    /// </summary>
+    public static IServiceCollection AddLinearIssueTracker(
+        this IServiceCollection services, IConfiguration configuration)
+    {
+        var section = configuration.GetSection(LinearOptions.SectionName);
+        var options = section.Get<LinearOptions>() ?? new LinearOptions();
+        if (!options.IsConfigured)
+        {
+            return services;
+        }
+
+        services.Configure<LinearOptions>(section);
+        services.AddHttpClient("linear", c => c.Timeout = TimeSpan.FromSeconds(10));
+        services.Replace(ServiceDescriptor.Singleton<IIssueTracker, LinearIssueTracker>());
         return services;
     }
 }

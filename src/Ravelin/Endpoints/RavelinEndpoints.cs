@@ -418,6 +418,39 @@ public static class RavelinEndpoints
             return Results.Ok(events);
         });
 
+        // Captured application errors (deduplicated unhandled exceptions) with their Linear link,
+        // most-recent first. Optional ?status=Open|Resolved|Muted filter.
+        admin.MapGet("/errors", async (string? status, RavelinDbContext db) =>
+        {
+            var query = db.AppErrors.AsNoTracking();
+            if (Enum.TryParse<AppErrorStatus>(status, ignoreCase: true, out var parsed))
+            {
+                query = query.Where(e => e.Status == parsed);
+            }
+
+            var rows = await query
+                .OrderByDescending(e => e.LastSeenAt)
+                .Take(200)
+                .ToListAsync();
+
+            var items = rows.Select(e => new AppErrorDto
+            {
+                Id = e.Id,
+                Fingerprint = e.Fingerprint,
+                ExceptionType = e.ExceptionType,
+                Message = e.Message,
+                RequestMethod = e.RequestMethod,
+                RequestPath = e.RequestPath,
+                Status = e.Status.ToString(),
+                Occurrences = e.Occurrences,
+                FirstSeenAt = e.FirstSeenAt,
+                LastSeenAt = e.LastSeenAt,
+                IssueIdentifier = e.IssueIdentifier,
+                IssueUrl = e.IssueUrl,
+            });
+            return Results.Ok(items);
+        });
+
         // Admin-initiated password reset (no email): set a strong temporary password and return
         // it once for out-of-band handoff. The user signs in with it and changes it on /account.
         admin.MapPost("/users/{id}/reset-password", async (
