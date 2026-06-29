@@ -55,14 +55,20 @@ public sealed class LiveAppFixture : IAsyncLifetime
         // build output discovered relative to the repo root.
         var dll = Environment.GetEnvironmentVariable("RAVELIN_E2E_APP_DLL") ?? FindHostDll();
 
+        var appDir = Path.GetDirectoryName(dll)!;
         var psi = new ProcessStartInfo("dotnet", $"\"{dll}\"")
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
+            // Run from the app's own folder so the content root (and thus wwwroot, where the
+            // Blazor WASM bundle lives) resolves correctly. Without this it defaults to the
+            // test's cwd, so /_framework/* 404s and the WASM runtime never boots.
+            WorkingDirectory = appDir,
         };
         var env = psi.Environment;
         env["ASPNETCORE_ENVIRONMENT"] = "Testing";
+        env["ASPNETCORE_CONTENTROOT"] = appDir; // explicit, belt-and-suspenders with WorkingDirectory
         env["ASPNETCORE_URLS"] = baseUrl;
         env["ConnectionStrings__RavelinDb"] = connectionString;
         // A real signing key so login issues a verifiable JWT (the default is empty, which throws).

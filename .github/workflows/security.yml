@@ -38,7 +38,9 @@ jobs:
           global-json-file: global.json
       - run: dotnet restore Ravelin.slnx
       - run: dotnet build Ravelin.slnx -c Release --no-restore
-      - run: dotnet test Ravelin.slnx -c Release --no-build --verbosity normal
+      # Unit tests only here (fast, no Docker). The integration and E2E tiers have their own
+      # jobs below — running the whole solution here would sweep them in without their setup.
+      - run: dotnet test tests/Ravelin.Tests/Ravelin.Tests.csproj -c Release --no-build --verbosity normal
       - name: Dependency scan (SCA)
         id: sca
         run: |
