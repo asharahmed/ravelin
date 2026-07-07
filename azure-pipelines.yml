@@ -67,6 +67,9 @@ stages:
   - stage: Image
     displayName: Build & push image (ACR)
     dependsOn: Build
+    # Only build/push an image on a real CI run of `main` — never on a PR validation build
+    # (a PR shouldn't push a production image or deploy; PRs just build & unit-test above).
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
     jobs:
       - job: build_push
         pool:
@@ -103,6 +106,8 @@ stages:
   - stage: Deploy
     displayName: Deploy to Container Apps
     dependsOn: Image
+    # Deploy only on a real CI run of `main`, never on a PR validation build.
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
     jobs:
       - deployment: deploy
         pool:
