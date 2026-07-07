@@ -146,6 +146,20 @@ else
                                 {
                                     <code class="find-vuln">@f.VulnerabilityId</code>
                                 }
+                                <div class="find-risk">
+                                    @if (f.IsKnownExploited)
+                                    {
+                                        <span class="chip sev-critical" title="In the CISA Known Exploited Vulnerabilities catalog — actively exploited in the wild">⚠ Exploited</span>
+                                    }
+                                    else if (!string.IsNullOrEmpty(f.RiskLabel))
+                                    {
+                                        <span class="chip sev-high" title="High predicted exploitation likelihood (EPSS)">@f.RiskLabel</span>
+                                    }
+                                    @if (f.EpssScore is double epss)
+                                    {
+                                        <span class="find-ver" title="EPSS — predicted probability of exploitation in the next 30 days">EPSS @((epss * 100).ToString("0.#"))%</span>
+                                    }
+                                </div>
                             </td>
                             <td><span class="find-pkg">@f.PackageName</span> <span class="find-ver">@f.PackageVersion</span></td>
                             <td class="find-num">@(f.CvssScore is double cv ? cv.ToString("0.0") : "—")</td>
@@ -312,14 +326,16 @@ else
     {
         var rows = Visible.ToList();
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine("Severity,Vulnerability,Title,Package,Version,CVSS,Fixed Version,Status,SLA State,Days To SLA");
+        sb.AppendLine("Severity,Vulnerability,Title,Package,Version,CVSS,Fixed Version,Status,SLA State,Days To SLA,KEV,EPSS %");
         foreach (var f in rows)
         {
             sb.AppendLine(Ravelin.Shared.Csv.Row(
                 f.Severity, f.VulnerabilityId, f.Title,
                 f.PackageName, f.PackageVersion,
                 f.CvssScore?.ToString("0.0"), f.FixedVersion, Humanize(f.Status),
-                f.SlaState, f.DaysToSla?.ToString()));
+                f.SlaState, f.DaysToSla?.ToString(),
+                f.IsKnownExploited ? "yes" : "",
+                f.EpssScore is double e ? (e * 100).ToString("0.#") : ""));
         }
         var name = $"ravelin-{Key}-findings-{DateTime.Now:yyyyMMdd}.csv";
         await JS.InvokeVoidAsync("ravelinDownload", name, "text/csv", sb.ToString());

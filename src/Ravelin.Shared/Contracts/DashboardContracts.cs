@@ -12,6 +12,9 @@ public record DashboardDto
     /// <summary>Share of open findings within SLA across all projects (0–100; 100 when none open).</summary>
     public required double CompliancePercent { get; init; }
 
+    /// <summary>Open findings whose CVE is in the CISA KEV catalog (actively exploited).</summary>
+    public int ActivelyExploited { get; init; }
+
     public required SeverityCountsDto OpenBySeverity { get; init; }
     public required IReadOnlyList<ProjectPostureDto> Projects { get; init; }
 

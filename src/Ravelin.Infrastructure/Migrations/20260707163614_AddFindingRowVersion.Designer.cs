@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Ravelin.Infrastructure;
 
@@ -11,9 +12,11 @@ using Ravelin.Infrastructure;
 namespace Ravelin.Infrastructure.Migrations
 {
     [DbContext(typeof(RavelinDbContext))]
-    partial class RavelinDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260707163614_AddFindingRowVersion")]
+    partial class AddFindingRowVersion
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -381,27 +384,12 @@ namespace Ravelin.Infrastructure.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTimeOffset?>("EnrichedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<double?>("EpssPercentile")
-                        .HasColumnType("float");
-
-                    b.Property<double?>("EpssScore")
-                        .HasColumnType("float");
-
                     b.Property<DateTimeOffset>("FirstDetectedAt")
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("FixedVersion")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
-
-                    b.Property<bool>("IsKnownExploited")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTimeOffset?>("KevDateAdded")
-                        .HasColumnType("datetimeoffset");
 
                     b.Property<DateTimeOffset>("LastSeenAt")
                         .HasColumnType("datetimeoffset");
@@ -454,8 +442,6 @@ namespace Ravelin.Infrastructure.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("ProjectId", "IsKnownExploited");
 
                     b.HasIndex("ProjectId", "Status");
 

@@ -202,6 +202,14 @@ resource "azurerm_container_app" "main" {
         secret_name = "reeval-token"
       }
 
+      # Exploitation-intelligence enrichment: pull CISA KEV + FIRST EPSS and drive the
+      # risk-adjusted SLA (actively-exploited findings get a tighter deadline). Uses only public
+      # feeds (no secret); the hourly re-evaluation refreshes it. Inert unless Enabled=true.
+      env {
+        name  = "VulnIntel__Enabled"
+        value = "true"
+      }
+
       # DataProtection key persistence — blob read via the app's managed identity.
       env {
         name  = "DataProtection__BlobUri"

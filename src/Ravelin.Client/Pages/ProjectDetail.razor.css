@@ -326,6 +326,15 @@
 .btn-seal:hover:not(:disabled) { filter: brightness(1.35); }
 .btn-seal:disabled, .btn-ghost:disabled { opacity: 0.55; cursor: default; }
 
+/* Exploitation-intelligence badges under a finding's vulnerability id. */
+.find-risk {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.35rem;
+}
+
 @media (max-width: 760px) {
     .pd-stats { grid-template-columns: 1fr 1fr; }
     .find-table { font-size: 0.85rem; }

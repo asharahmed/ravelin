@@ -33,4 +33,20 @@ public record FindingDto
 
     /// <summary>Whole days until the SLA deadline; negative when overdue, null when N/A.</summary>
     public int? DaysToSla { get; init; }
+
+    // --- Exploitation intelligence ---
+    /// <summary>True when the CVE is in the CISA Known Exploited Vulnerabilities catalog.</summary>
+    public bool IsKnownExploited { get; init; }
+
+    /// <summary>When the CVE was added to CISA KEV, if known.</summary>
+    public DateTimeOffset? KevDateAdded { get; init; }
+
+    /// <summary>EPSS score (0–1): predicted 30-day exploitation probability.</summary>
+    public double? EpssScore { get; init; }
+
+    /// <summary>EPSS percentile (0–1) versus all scored CVEs.</summary>
+    public double? EpssPercentile { get; init; }
+
+    /// <summary>Short risk badge ("Actively exploited" / "Likely exploited"), or null.</summary>
+    public string? RiskLabel { get; init; }
 }

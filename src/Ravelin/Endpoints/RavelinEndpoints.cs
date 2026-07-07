@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Ravelin.Auth;
 using Ravelin.Domain.Entities;
 using Ravelin.Domain.Enums;
@@ -240,7 +241,10 @@ public static class RavelinEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        // An empty report is valid: it records a clean scan and auto-resolves what's now gone.
+        // An empty report is accepted and recorded as a scan, but deliberately does NOT
+        // auto-resolve open findings (see ScanReconciler) — a zero-finding report is far more
+        // often a broken scanner step than a genuine "all clear", and silently resolving
+        // everything would report false 100% compliance.
         var (scan, result, openTotal) = await ingestion.IngestAsync(projectId, tool, null, incoming);
         return Results.Ok(new ScanIngestResponse
         {
@@ -503,6 +507,20 @@ public static class RavelinEndpoints
             });
         });
 
+        // Refresh KEV/EPSS exploitation intelligence now and re-baseline risk-adjusted SLAs.
+        // Backs the admin "enrich now" action; the hourly re-evaluation does the same on a timer.
+        admin.MapPost("/enrich", async (
+            IFindingEnricher enricher, AuditService audit, ClaimsPrincipal actor) =>
+        {
+            var r = await enricher.EnrichAsync();
+            await audit.RecordAsync(ActorOf(actor), "finding.enrich.manual", null,
+                $"{r.KnownExploited} KEV, {r.Escalated} escalated, {r.Updated} updated");
+            return Results.Ok(new EnrichmentSummaryDto
+            {
+                Scanned = r.Scanned, KnownExploited = r.KnownExploited, Escalated = r.Escalated, Updated = r.Updated,
+            });
+        });
+
         // Set / clear a project's outbound alert webhook (Slack or generic; URL validated).
         admin.MapPut("/projects/{key}/webhook", async (
             string key, SetWebhookRequest req, RavelinDbContext db, AuditService audit, ClaimsPrincipal actor) =>
@@ -633,36 +651,55 @@ public static class RavelinEndpoints
         });
 
         reads.MapGet("/projects/{key}/findings", async (
-            string key, string? status, RavelinDbContext db) =>
+            string key, string? status, int? skip, int? take,
+            RavelinDbContext db, IOptions<VulnIntelOptions> vulnOpts) =>
         {
-            var project = await db.Projects.FirstOrDefaultAsync(p => p.Key == key);
+            var project = await db.Projects.AsNoTracking().FirstOrDefaultAsync(p => p.Key == key);
             if (project is null)
             {
                 return Results.NotFound($"Project '{key}' not found.");
             }
 
-            var query = db.Findings.Where(f => f.ProjectId == project.Id);
+            // Read-only: no change tracking (these entities are never written back on this path).
+            var query = db.Findings.AsNoTracking().Where(f => f.ProjectId == project.Id);
             if (Enum.TryParse<FindingStatus>(status, ignoreCase: true, out var parsed))
             {
                 query = query.Where(f => f.Status == parsed);
             }
 
-            var findings = await query
-                .OrderByDescending(f => f.Severity)
-                .ThenBy(f => f.PackageName)
-                .ToListAsync();
+            // Risk-first ordering: actively-exploited (KEV) rises to the top, then severity, then
+            // exploitation likelihood (EPSS), so the most urgent work is what a triager sees first.
+            query = query
+                .OrderByDescending(f => f.IsKnownExploited)
+                .ThenByDescending(f => f.Severity)
+                .ThenByDescending(f => f.EpssScore)
+                .ThenBy(f => f.PackageName);
+
+            // Optional, additive pagination — omitting both params preserves the full-list
+            // behaviour existing clients depend on; `take` is capped so a caller can't request an
+            // unbounded page.
+            if (skip is > 0) query = query.Skip(skip.Value);
+            if (take is > 0) query = query.Take(Math.Min(take.Value, MaxFindingsPerScan));
+
+            var findings = await query.ToListAsync();
 
             var now = DateTimeOffset.UtcNow;
-            return Results.Ok(findings.Select(f => ToDto(f, now)).ToList());
+            var threshold = vulnOpts.Value.EpssEscalationThreshold;
+            return Results.Ok(findings.Select(f => ToDto(f, now, threshold)).ToList());
         });
 
         // Breached (overdue) open findings, for the compliance report.
         reads.MapGet("/report/breaches", async (RavelinDbContext db) =>
         {
             var now = DateTimeOffset.UtcNow;
+            // A finding is breached ⟺ open, has a deadline, and the deadline has passed (see
+            // SlaEvaluator.Evaluate). Push that predicate into SQL so only breached rows are
+            // loaded instead of every open finding across all projects; AsNoTracking since this
+            // is read-only. DaysOverdue is still derived from the pure evaluator below.
             var open = await db.Findings
+                .AsNoTracking()
                 .Include(f => f.Project)
-                .Where(f => f.Status == FindingStatus.Open)
+                .Where(f => f.Status == FindingStatus.Open && f.SlaDueAt != null && f.SlaDueAt <= now)
                 .ToListAsync();
 
             var breaches = open
@@ -703,7 +740,7 @@ public static class RavelinEndpoints
             // Open findings drive every "current posture" number (archived projects excluded).
             var open = await db.Findings
                 .Where(f => f.Status == FindingStatus.Open && activeIds.Contains(f.ProjectId))
-                .Select(f => new { f.ProjectId, f.Severity, f.SlaDueAt })
+                .Select(f => new { f.ProjectId, f.Severity, f.SlaDueAt, f.IsKnownExploited })
                 .ToListAsync();
 
             SlaState StateOf(DateTimeOffset? dueAt) =>
@@ -775,6 +812,7 @@ public static class RavelinEndpoints
                 DueSoon = totalDueSoon,
                 OnTrack = totalOpen - totalBreached - totalDueSoon,
                 CompliancePercent = totalOpen == 0 ? 100 : Math.Round((double)(totalOpen - totalBreached) / totalOpen * 100, 1),
+                ActivelyExploited = open.Count(f => f.IsKnownExploited),
                 OpenBySeverity = severity,
                 Projects = perProject,
                 Trend = trend,
@@ -802,8 +840,23 @@ public static class RavelinEndpoints
         })
         .RequireAuthorization();
 
+        // The risk-adjusted SLA policy (how KEV / high-EPSS tighten deadlines). Read-only; the
+        // values come from configuration (VulnIntel section).
+        app.MapGet("/api/risk-policy", (IOptions<VulnIntelOptions> opt) =>
+        {
+            var o = opt.Value;
+            return Results.Ok(new RiskPolicyDto
+            {
+                Enabled = o.Enabled,
+                KevRemediationDays = o.KevRemediationDays,
+                HighEpssRemediationDays = o.HighEpssRemediationDays,
+                EpssEscalationThreshold = o.EpssEscalationThreshold,
+            });
+        })
+        .RequireAuthorization();
+
         app.MapPut("/api/sla-policies", async (UpdateSlaPoliciesRequest req, RavelinDbContext db,
-            AuditService audit, ClaimsPrincipal actor) =>
+            AuditService audit, ClaimsPrincipal actor, IOptions<VulnIntelOptions> vulnOpts) =>
         {
             if (req.Policies is null || req.Policies.Count == 0)
             {
@@ -835,11 +888,15 @@ public static class RavelinEndpoints
 
             // Re-baseline open findings so the new deadline applies immediately (deadline is a
             // snapshot computed from FirstDetected; triaged/resolved findings are left alone).
+            // Keeps the KEV / high-EPSS risk tightening in place on top of the new severity SLA.
             var slaDays = policies.ToDictionary(p => p.Severity, p => p.RemediationDays);
+            var risk = vulnOpts.Value.ToRiskPolicy();
             var openFindings = await db.Findings.Where(f => f.Status == FindingStatus.Open).ToListAsync();
             foreach (var finding in openFindings)
             {
-                finding.SlaDueAt = SlaEvaluator.ComputeDueDate(finding.FirstDetectedAt, finding.Severity, slaDays);
+                finding.SlaDueAt = SlaEvaluator.ComputeDueDate(
+                    finding.FirstDetectedAt, finding.Severity, slaDays, risk,
+                    finding.IsKnownExploited, finding.EpssScore);
             }
 
             await db.SaveChangesAsync();
@@ -857,7 +914,7 @@ public static class RavelinEndpoints
         // Triage a finding (Analyst or Admin). Viewer is read-only.
         app.MapPost("/api/projects/{key}/findings/{id:guid}/triage", async (
             string key, Guid id, TriageFindingRequest req, RavelinDbContext db,
-            AuditService audit, ClaimsPrincipal actor) =>
+            AuditService audit, ClaimsPrincipal actor, IOptions<VulnIntelOptions> vulnOpts) =>
         {
             if (!Enum.TryParse<FindingStatus>(req.Status, ignoreCase: true, out var target))
             {
@@ -880,7 +937,7 @@ public static class RavelinEndpoints
 
             await db.SaveChangesAsync();
             await audit.RecordAsync(ActorOf(actor), "finding.triage", finding.VulnerabilityId, $"{key}: {target}");
-            return Results.Ok(ToDto(finding, DateTimeOffset.UtcNow));
+            return Results.Ok(ToDto(finding, DateTimeOffset.UtcNow, vulnOpts.Value.EpssEscalationThreshold));
         })
         .RequireAuthorization(policy => policy.RequireRole(RavelinRoles.Admin, RavelinRoles.Analyst))
         .DisableAntiforgery();
@@ -1031,7 +1088,7 @@ public static class RavelinEndpoints
         WebhookUrl = p.WebhookUrl,
     };
 
-    private static FindingDto ToDto(Finding f, DateTimeOffset now)
+    private static FindingDto ToDto(Finding f, DateTimeOffset now, double epssThreshold)
     {
         var sla = SlaEvaluator.Evaluate(f, now);
         return new FindingDto
@@ -1052,6 +1109,11 @@ public static class RavelinEndpoints
             SlaBreached = sla.IsBreached,
             SlaState = sla.State.ToString(),
             DaysToSla = sla.DaysRemaining,
+            IsKnownExploited = f.IsKnownExploited,
+            KevDateAdded = f.KevDateAdded,
+            EpssScore = f.EpssScore,
+            EpssPercentile = f.EpssPercentile,
+            RiskLabel = RiskEvaluator.Label(f.IsKnownExploited, f.EpssScore, epssThreshold),
         };
     }
 }
