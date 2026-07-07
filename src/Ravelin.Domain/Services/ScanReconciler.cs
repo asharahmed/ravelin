@@ -38,8 +38,16 @@ public static class ScanReconciler
         DateTimeOffset now)
     {
         var result = new ReconciliationResult();
-        var existingByKey = existingFindings.ToDictionary(IdentityKey);
-        var incomingKeys = new HashSet<string>();
+        // Identity keys are compared case-insensitively: NuGet package ids are officially
+        // case-insensitive and Azure SQL's default collation is too, so "Newtonsoft.Json" and
+        // "newtonsoft.json" are the SAME finding. Matching them here (rather than inserting a
+        // second row) avoids a duplicate INSERT that would violate the dedup unique index.
+        var existingByKey = new Dictionary<string, Finding>(StringComparer.OrdinalIgnoreCase);
+        foreach (var f in existingFindings)
+        {
+            existingByKey[IdentityKey(f)] = f;
+        }
+        var incomingKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var inc in incoming)
         {
@@ -98,14 +106,23 @@ public static class ScanReconciler
             }
         }
 
-        // Auto-resolve open findings that were not reported by this scan.
-        foreach (var finding in existingFindings)
+        // Auto-resolve open findings that were not reported by this scan — but NOT when the scan
+        // reported nothing at all. An empty report is far more likely a broken/errored scanner
+        // step (which still emits structurally-valid empty JSON) than a genuine "everything is
+        // fixed" event; silently resolving every open finding on it would report false 100%
+        // compliance — the worst failure mode for an accountability tool. An empty scan is
+        // therefore treated as "no new information": nothing is auto-resolved. Findings that are
+        // genuinely remediated drop out of a subsequent NON-empty scan and resolve normally.
+        if (incomingKeys.Count > 0)
         {
-            if (finding.Status == FindingStatus.Open && !incomingKeys.Contains(IdentityKey(finding)))
+            foreach (var finding in existingFindings)
             {
-                finding.Status = FindingStatus.Resolved;
-                finding.ResolvedAt = now;
-                result.Resolved.Add(finding);
+                if (finding.Status == FindingStatus.Open && !incomingKeys.Contains(IdentityKey(finding)))
+                {
+                    finding.Status = FindingStatus.Resolved;
+                    finding.ResolvedAt = now;
+                    result.Resolved.Add(finding);
+                }
             }
         }
 

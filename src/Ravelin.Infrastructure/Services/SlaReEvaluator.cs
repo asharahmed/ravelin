@@ -16,10 +16,23 @@ public readonly record struct ReEvaluateResult(int Scanned, int NewBreached, int
 /// Creates its own scope so it can run from a background timer or an HTTP request.
 /// </summary>
 public sealed class SlaReEvaluator(
-    IServiceScopeFactory scopeFactory, NotificationService notifications, ILogger<SlaReEvaluator> logger)
+    IServiceScopeFactory scopeFactory, NotificationService notifications,
+    IFindingEnricher enricher, ILogger<SlaReEvaluator> logger)
 {
     public async Task<ReEvaluateResult> ReEvaluateAsync(CancellationToken ct = default)
     {
+        // Refresh exploitation intelligence first so newly-KEV findings have their tightened
+        // deadline in place before breach detection runs. Best-effort (inert when disabled); a
+        // failure here must never stop SLA re-evaluation.
+        try
+        {
+            await enricher.EnrichAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Enrichment step failed; continuing with SLA re-evaluation.");
+        }
+
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<RavelinDbContext>();
         var audit = scope.ServiceProvider.GetRequiredService<AuditService>();

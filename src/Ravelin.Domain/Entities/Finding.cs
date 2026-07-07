@@ -48,6 +48,31 @@ public class Finding
     /// <summary>Free-text triage note (e.g. justification for accepted-risk/false-positive).</summary>
     public string? TriageNote { get; set; }
 
+    // --- Exploitation intelligence (enrichment; keyed by CVE) ---
+    /// <summary>True when this finding's CVE is in the CISA Known Exploited Vulnerabilities
+    /// catalog — the strongest "fix this now" signal. Drives risk-adjusted SLA and prioritization.</summary>
+    public bool IsKnownExploited { get; set; }
+
+    /// <summary>When the CVE was added to the CISA KEV catalog, if known.</summary>
+    public DateTimeOffset? KevDateAdded { get; set; }
+
+    /// <summary>EPSS score (0–1): predicted probability the CVE is exploited in the next 30 days.</summary>
+    public double? EpssScore { get; set; }
+
+    /// <summary>EPSS percentile (0–1): where this CVE ranks against all scored CVEs.</summary>
+    public double? EpssPercentile { get; set; }
+
+    /// <summary>When exploitation intelligence was last refreshed for this finding.</summary>
+    public DateTimeOffset? EnrichedAt { get; set; }
+
+    /// <summary>
+    /// SQL <c>rowversion</c> concurrency token. Guards against silent last-writer-wins when an
+    /// ingestion pass and a manual triage mutate the same finding concurrently (e.g. an analyst's
+    /// AcceptedRisk being clobbered back to Open). EF throws <see cref="Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException"/>
+    /// on a conflicting update; callers reload and reconcile.
+    /// </summary>
+    public byte[]? RowVersion { get; set; }
+
     // Navigation
     public Project? Project { get; set; }
 }

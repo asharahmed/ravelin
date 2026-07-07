@@ -20,11 +20,18 @@ public class FindingConfiguration : IEntityTypeConfiguration<Finding>
         builder.Property(f => f.Severity).HasConversion<string>().HasMaxLength(20);
         builder.Property(f => f.Status).HasConversion<string>().HasMaxLength(20);
 
+        // Optimistic-concurrency token (SQL rowversion): protects against a concurrent ingest +
+        // triage silently clobbering each other on the same finding.
+        builder.Property(f => f.RowVersion).IsRowVersion();
+
         // Dedup identity: the same vuln on the same package+version in a project is one finding.
         builder.HasIndex(f => new { f.ProjectId, f.VulnerabilityId, f.PackageName, f.PackageVersion })
             .IsUnique();
 
         // Common dashboard filter: open findings per project.
         builder.HasIndex(f => new { f.ProjectId, f.Status });
+
+        // Fast lookup of actively-exploited findings (dashboard KEV count, risk-sorted lists).
+        builder.HasIndex(f => new { f.ProjectId, f.IsKnownExploited });
     }
 }

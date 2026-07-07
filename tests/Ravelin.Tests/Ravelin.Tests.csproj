@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Ravelin.Domain\Ravelin.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Ravelin.Infrastructure\Ravelin.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Ravelin.Shared\Ravelin.Shared.csproj" />
   </ItemGroup>
 

@@ -77,6 +77,9 @@ builder.Services.AddRavelinInfrastructure(builder.Configuration.GetConnectionStr
 // Files captured errors as Linear issues when Linear:ApiKey + Linear:TeamId are configured;
 // otherwise inert (no-op tracker). The capture pipeline works with or without it.
 builder.Services.AddLinearIssueTracker(builder.Configuration);
+// Enriches findings with CISA-KEV + FIRST-EPSS exploitation intelligence and drives the
+// risk-adjusted SLA — active when VulnIntel:Enabled=true, otherwise inert (no external calls).
+builder.Services.AddVulnerabilityIntelligence(builder.Configuration);
 
 // Outbound webhook/Slack delivery for SLA alerts (short timeout; failures are swallowed).
 builder.Services.AddHttpClient("webhooks", c => c.Timeout = TimeSpan.FromSeconds(5));
@@ -106,6 +109,24 @@ builder.Services.Configure<JwtOptions>(jwtSection);
 builder.Services.AddScoped<JwtTokenService>();
 var jwt = jwtSection.Get<JwtOptions>() ?? new JwtOptions();
 
+// Fail closed on the signing key. A security tool must NEVER validate tokens against a
+// guessable key: in Production the key MUST be supplied (from Key Vault) and be long enough
+// for HMAC-SHA256. Outside Production we substitute a fixed, clearly-non-secret development
+// key so local runs and the test host boot — the effective key is resolved once here so the
+// token ISSUER (JwtTokenService) and the VALIDATOR below always agree.
+if (string.IsNullOrWhiteSpace(jwt.SigningKey) || Encoding.UTF8.GetByteCount(jwt.SigningKey) < 32)
+{
+    if (builder.Environment.IsProduction())
+    {
+        throw new InvalidOperationException(
+            "Jwt:SigningKey must be configured with at least 32 bytes in Production (delivered " +
+            "from Key Vault). Refusing to start with a missing or weak signing key.");
+    }
+
+    jwt.SigningKey = "ravelin-development-only-signing-key-do-not-use-in-production-0123456789";
+    builder.Services.PostConfigure<JwtOptions>(o => o.SigningKey = jwt.SigningKey);
+}
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -120,8 +141,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwt.Issuer,
             ValidAudience = jwt.Audience,
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(jwt.SigningKey.Length > 0 ? jwt.SigningKey : new string('0', 32))),
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey)),
+            ClockSkew = TimeSpan.FromSeconds(30),
             RoleClaimType = JwtTokenService.RoleClaim,
             NameClaimType = "email",
         };

@@ -27,6 +27,10 @@ public static class DependencyInjection
         services.AddSingleton<NotificationService>();
         services.AddSingleton<SlaReEvaluator>();
 
+        // Exploitation-intelligence enrichment is inert until AddVulnerabilityIntelligence enables
+        // it (config-gated). The re-evaluator/admin endpoint always resolve IFindingEnricher.
+        services.AddSingleton<IFindingEnricher, NullFindingEnricher>();
+
         // Error capture: dedup + persist unhandled exceptions. The issue tracker is a no-op until
         // a real (config-gated) one is registered in the capture→Linear delivery stage.
         services.AddSingleton<IIssueTracker, NullIssueTracker>();
@@ -54,6 +58,29 @@ public static class DependencyInjection
         services.Configure<LinearOptions>(section);
         services.AddHttpClient("linear", c => c.Timeout = TimeSpan.FromSeconds(10));
         services.Replace(ServiceDescriptor.Singleton<IIssueTracker, LinearIssueTracker>());
+        return services;
+    }
+
+    /// <summary>
+    /// Wires CISA-KEV + FIRST-EPSS enrichment and the risk-adjusted SLA it drives — but only when
+    /// VulnIntel:Enabled is true. Otherwise the inert NullFindingEnricher stays, so local/dev/test
+    /// runs make no external calls (the same "config-gated, inert by default" shape as Linear).
+    /// </summary>
+    public static IServiceCollection AddVulnerabilityIntelligence(
+        this IServiceCollection services, IConfiguration configuration)
+    {
+        var section = configuration.GetSection(VulnIntelOptions.SectionName);
+        services.Configure<VulnIntelOptions>(section);
+
+        var options = section.Get<VulnIntelOptions>() ?? new VulnIntelOptions();
+        if (!options.Enabled)
+        {
+            return services;
+        }
+
+        services.AddHttpClient("vulnintel", c => c.Timeout = TimeSpan.FromSeconds(20));
+        services.AddSingleton<IVulnerabilityIntelligence, VulnerabilityIntelligenceClient>();
+        services.Replace(ServiceDescriptor.Singleton<IFindingEnricher, FindingEnrichmentService>());
         return services;
     }
 }

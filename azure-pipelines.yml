@@ -47,10 +47,14 @@ stages:
           - script: dotnet build Ravelin.slnx -c $(buildConfiguration) --no-restore --nologo
             displayName: Build
 
+          # Run the fast unit tier here as the deploy gate. The integration tier (Testcontainers
+          # SQL) and the E2E tier (Playwright) need Docker/browser setup this agent doesn't have;
+          # those tiers run in GitHub Actions (security.yml), which provisions them. Testing the
+          # whole solution here would fail on the unprovisioned tiers.
           - script: >
-              dotnet test Ravelin.slnx -c $(buildConfiguration) --no-build --nologo
-              --logger trx --results-directory $(Agent.TempDirectory)/testresults
-            displayName: Test
+              dotnet test tests/Ravelin.Tests/Ravelin.Tests.csproj -c $(buildConfiguration)
+              --no-build --nologo --logger trx --results-directory $(Agent.TempDirectory)/testresults
+            displayName: Test (unit tier)
 
           - task: PublishTestResults@2
             displayName: Publish test results
@@ -63,6 +67,9 @@ stages:
   - stage: Image
     displayName: Build & push image (ACR)
     dependsOn: Build
+    # Only build/push an image on a real CI run of `main` — never on a PR validation build
+    # (a PR shouldn't push a production image or deploy; PRs just build & unit-test above).
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
     jobs:
       - job: build_push
         pool:
@@ -99,6 +106,8 @@ stages:
   - stage: Deploy
     displayName: Deploy to Container Apps
     dependsOn: Image
+    # Deploy only on a real CI run of `main`, never on a PR validation build.
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
     jobs:
       - deployment: deploy
         pool:

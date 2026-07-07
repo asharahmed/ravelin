@@ -22,8 +22,11 @@ vendor-neutral, API-first, and self-hosted.
 
 > A *ravelin* is a triangular outwork built in front of a fortress wall. The logo is its salient.
 
-**Live demo:** <https://getravelin.xyz> — runs on scale-to-zero infrastructure, so the first
-request after an idle period takes a few seconds to wake.
+**Live demo:** <https://getravelin.xyz> · interactive API reference at
+<https://getravelin.xyz/scalar>. Sign up from the login page for a read-only **Viewer** account
+to explore the dashboards, reports, and API — there are no shared credentials to hand out. It
+runs on scale-to-zero infrastructure, so the first request after an idle period takes a few
+seconds to wake.
 
 ![Ravelin](./docs/screenshot.png)
 
@@ -109,9 +112,36 @@ dotnet list package --vulnerable --include-transitive --format json \
     -H "X-Api-Key: $RAVELIN_API_KEY" --data-binary @-
 ```
 
-Ravelin **eats its own dog food**: its CI (`.github/workflows/security.yml`) pushes the app's own
-`dotnet list package --vulnerable` results to the live instance through that last endpoint, so the
-demo tracks Ravelin's own dependency-remediation SLAs.
+Ravelin is built to **eat its own dog food**: its CI (`.github/workflows/security.yml`) can push
+the app's own `dotnet list package --vulnerable` results to the live instance through that last
+endpoint, so the demo tracks Ravelin's own dependency-remediation SLAs. The push step is gated on
+a configured `RAVELIN_INGEST_KEY` secret and is a no-op until that key is wired up.
+
+## What's inside
+
+Beyond ingestion and SLA tracking, the app ships:
+
+- **Risk-based prioritization** — findings are enriched with **CISA KEV** (known actively exploited)
+  and **FIRST EPSS** (predicted exploitation probability). An actively-exploited or high-EPSS
+  finding gets a **tighter, risk-adjusted SLA** than its CVSS severity alone would set, and lists
+  sort by real risk (KEV first). Severity is a weak triage signal on its own; this prioritizes by
+  exploitation in the wild. Uses only public feeds; enabled with `VulnIntel__Enabled=true`.
+- **SLA alerting** — an hourly re-evaluation raises breach / due-soon alerts and dispatches them
+  to a per-project **Slack or generic webhook** (SSRF-validated). Alerts are acknowledgeable, with
+  an unacknowledged count in the nav. On scale-to-zero infra the hourly pass is driven by a tiny
+  Container Apps cron job so no always-on replica is needed.
+- **Audit trail** — an append-only log of security-relevant actions (logins, role changes, key
+  create/revoke, triage, SLA edits, webhook config…), viewable by admins.
+- **Error capture** — unhandled exceptions are recorded as deduplicated, secret-scrubbed
+  `AppError`s and can be filed as **Linear** issues when a tracker is configured.
+- **Admin console** — self-service signup (read-only Viewer), user & role management, admin
+  password reset, project archive/unarchive, and API-key list/revoke.
+- **Published API** — the OpenAPI document at `/openapi/v1.json` with an interactive **Scalar**
+  reference at `/scalar`.
+- **Point-in-time compliance report** — a print/PDF-friendly breach report.
+
+See [`docs/architecture.md`](./docs/architecture.md) for how these fit together and
+[`docs/THREAT-MODEL.md`](./docs/THREAT-MODEL.md) for the STRIDE analysis.
 
 ## Authentication
 
@@ -136,7 +166,7 @@ demo tracks Ravelin's own dependency-remediation SLAs.
 | IaC | Terraform (remote state in Azure Storage) |
 
 The OpenAPI document is served at `/openapi/v1.json`, with an interactive API reference at
-`/scalar`.
+`/scalar`. A full walkthrough with diagrams is in [`docs/architecture.md`](./docs/architecture.md).
 
 The solution keeps the domain free of infrastructure dependencies:
 
@@ -198,12 +228,17 @@ Ravelin is a security tool, so it's built to model good practice and to scan its
 - A Content-Security-Policy and the standard security headers (`X-Content-Type-Options`,
   `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) are sent on every response.
 - Auth and ingestion endpoints are rate-limited per client IP (brute-force / abuse defence).
-- Secrets are delivered as Container App secrets (Key Vault is on the roadmap) and never logged.
+- Application secrets (database connection, JWT signing key, seeded passwords) live in **Azure
+  Key Vault** and are read at runtime via a managed identity — never inlined or logged.
 - The CI pipeline scans Ravelin's own dependencies, code, container image, and IaC.
+
+The full STRIDE threat model — assets, trust boundaries, and each threat mapped to the mitigation
+in the code — is in [`docs/THREAT-MODEL.md`](./docs/THREAT-MODEL.md).
 
 ## Status
 
-Live through Stage 6 (dashboards). Built in reviewable stages:
+Live at <https://getravelin.xyz>. Built in reviewable stages — Stages 0–8 are shipped, plus SLA
+alerting and operational hardening:
 
 | Stage | Scope | State |
 |-------|-------|-------|
@@ -215,7 +250,13 @@ Live through Stage 6 (dashboards). Built in reviewable stages:
 | 5 | SLA engine + triage | Done |
 | 6 | Dashboards | Done |
 | 7 | Point-in-time compliance report (print / save as PDF) | Done |
-| 8 | DevSecOps hardening — pipeline scanners, Key Vault, managed-identity DB auth | Planned |
+| 8 | DevSecOps hardening — pipeline scanners (SCA/SAST/secret/image/IaC), Key Vault via managed identity | Done¹ |
+| 9 | Admin console — project archive, API-key revoke/list, user & role management, password reset | Done |
+| 10 | SLA alerting (webhooks/Slack + hourly re-eval), audit trail, error capture → Linear | Done |
+
+¹ Secrets are in Key Vault via managed identity; switching **SQL** auth from the admin login to a
+managed-identity least-privilege DB user is the one deliberately deferred item (see
+[`docs/THREAT-MODEL.md`](./docs/THREAT-MODEL.md) §4).
 
 Design rationale and the full decision log are in [`PROJECT_VISION.md`](./PROJECT_VISION.md). The
 design system is documented in [`DESIGN.md`](./DESIGN.md) and rendered live at `/styleguide`.

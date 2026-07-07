@@ -58,6 +58,12 @@ else
             <div class="led-label">Totals</div>
             <dl class="bs-list">
                 <div class="bs-line"><dt>Open findings</dt><dd class="ledger-num">@data.TotalOpen</dd></div>
+                @if (data.ActivelyExploited > 0)
+                {
+                    <div class="bs-line bs-red" title="In the CISA Known Exploited Vulnerabilities catalog">
+                        <dt>Actively exploited</dt><dd class="ledger-num">@data.ActivelyExploited</dd>
+                    </div>
+                }
                 <div class="bs-line bs-red"><dt>Breached</dt><dd class="ledger-num">@data.Breached</dd></div>
                 <div class="bs-line bs-amber"><dt>Due soon</dt><dd class="ledger-num">@data.DueSoon</dd></div>
                 <div class="bs-line"><dt>On track</dt><dd class="ledger-num">@data.OnTrack</dd></div>
