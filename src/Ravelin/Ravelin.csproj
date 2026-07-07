@@ -16,6 +16,10 @@
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.9" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
+    <!-- Pin Microsoft.OpenApi above the transitive 2.0.0 that AspNetCore.OpenApi/Scalar pull in:
+         2.0.0 is vulnerable to GHSA-v5pm-xwqc-g5wc (circular-schema parsing DoS), patched in 2.7.5.
+         Ravelin's own SCA gate flagged this — keep it current. -->
+    <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.9" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.16.4" />
     <ProjectReference Include="..\Ravelin.Client\Ravelin.Client.csproj" />
