@@ -76,15 +76,54 @@ public class ScanReconcilerTests
     }
 
     [Fact]
-    public void Open_finding_absent_from_scan_is_auto_resolved()
+    public void Open_finding_absent_from_a_non_empty_scan_is_auto_resolved()
     {
         var existing = new[] { Existing("CVE-2025-1", "pkgA", "1.0.0", FindingStatus.Open, Now.AddDays(-3)) };
+        // A different vuln is reported — the original is genuinely gone, so it auto-resolves.
+        var incoming = new[] { Incoming("CVE-2025-2", "pkgB", "2.0.0") };
 
-        var result = ScanReconciler.Reconcile(Project, existing, [], Sla, Now);
+        var result = ScanReconciler.Reconcile(Project, existing, incoming, Sla, Now);
 
         var resolved = Assert.Single(result.Resolved);
         Assert.Equal(FindingStatus.Resolved, resolved.Status);
         Assert.Equal(Now, resolved.ResolvedAt);
+        Assert.Equal("CVE-2025-1", resolved.VulnerabilityId);
+    }
+
+    [Fact]
+    public void Empty_scan_does_not_auto_resolve_open_findings()
+    {
+        // Guards the worst failure mode: a broken/errored scanner step emits structurally-valid
+        // but empty JSON. It must NOT silently resolve every open finding and report false
+        // 100% compliance. An empty scan is "no new information", not "everything is fixed".
+        var existing = new[]
+        {
+            Existing("CVE-2025-1", "pkgA", "1.0.0", FindingStatus.Open, Now.AddDays(-3)),
+            Existing("CVE-2025-2", "pkgB", "2.0.0", FindingStatus.Open, Now.AddDays(-3)),
+        };
+
+        var result = ScanReconciler.Reconcile(Project, existing, [], Sla, Now);
+
+        Assert.Empty(result.Resolved);
+        Assert.Empty(result.Created);
+        Assert.All(existing, f => Assert.Equal(FindingStatus.Open, f.Status));
+    }
+
+    [Fact]
+    public void Dedup_identity_is_case_insensitive_matching_the_database_collation()
+    {
+        // NuGet package ids are case-insensitive and so is Azure SQL's default collation, so the
+        // stored "Newtonsoft.Json" and an incoming "newtonsoft.json" are the SAME finding. The
+        // reconciler must MATCH them (touch the existing row) rather than queue a duplicate INSERT
+        // that would violate the case-insensitive dedup unique index at SaveChanges → HTTP 500.
+        var existing = new[] { Existing("CVE-2025-1", "Newtonsoft.Json", "13.0.1", FindingStatus.Open, Now.AddDays(-3)) };
+        var incoming = new[] { Incoming("cve-2025-1", "newtonsoft.json", "13.0.1") };
+
+        var result = ScanReconciler.Reconcile(Project, existing, incoming, Sla, Now);
+
+        Assert.Empty(result.Created);   // matched, not inserted
+        Assert.Empty(result.Resolved);  // the original is not treated as "gone"
+        Assert.Single(result.Seen);
     }
 
     [Fact]

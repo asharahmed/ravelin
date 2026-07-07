@@ -47,4 +47,27 @@ public class CsvTests
     {
         Assert.Equal("a,,c", Csv.Row("a", null, "c"));
     }
+
+    [Theory]
+    [InlineData("=HYPERLINK(\"http://evil\")", "'=HYPERLINK(\"http://evil\")")]
+    [InlineData("+1+1", "'+1+1")]
+    [InlineData("-2+3", "'-2+3")]
+    [InlineData("@SUM(A1)", "'@SUM(A1)")]
+    public void Field_neutralizes_formula_injection_triggers(string input, string expectedInner)
+    {
+        // Untrusted scan fields (titles, package names) must not evaluate as spreadsheet formulas
+        // when an auditor opens the export. Values with a comma/quote are additionally RFC 4180
+        // quoted around the neutralized value.
+        var result = Csv.Field(input);
+        var unquoted = result.StartsWith('"') ? result[1..^1].Replace("\"\"", "\"") : result;
+        Assert.Equal(expectedInner, unquoted);
+    }
+
+    [Fact]
+    public void Field_neutralizes_the_classic_dde_command_payload()
+    {
+        // Leading '=' is neutralized with a leading apostrophe; the payload has no comma/quote/
+        // newline, so no RFC 4180 wrapping is added.
+        Assert.Equal("'=cmd|'/c calc'!A1", Csv.Field("=cmd|'/c calc'!A1"));
+    }
 }

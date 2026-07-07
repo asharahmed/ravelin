@@ -69,8 +69,24 @@
 
         if (error is null)
         {
-            Nav.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "dashboard" : ReturnUrl);
+            // Only honor a same-site relative returnUrl. Without this check, a crafted link like
+            // /login?returnUrl=https://evil.example would bounce the freshly-authenticated user to
+            // an attacker page that borrows this domain's trust (open redirect → phishing).
+            Nav.NavigateTo(IsLocalReturnUrl(ReturnUrl) ? ReturnUrl! : "dashboard");
         }
+    }
+
+    // Accepts rooted ("/dashboard") and bare ("dashboard", "projects/foo") relative paths, which
+    // is what RedirectToLogin produces; rejects absolute URLs, protocol-relative ("//evil"),
+    // backslash tricks, and anything scheme-like ("https:evil", "javascript:...").
+    private static bool IsLocalReturnUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return false;
+        if (url.StartsWith("//") || url.StartsWith("/\\")) return false;
+        if (url.StartsWith('\\')) return false;
+        if (url.StartsWith('/')) return true;
+        // Bare relative path is local only if it has no scheme separator.
+        return !url.Contains(':');
     }
 
     private sealed class LoginModel
