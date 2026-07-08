@@ -14,6 +14,14 @@
                 var theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
                 document.documentElement.setAttribute('data-bs-theme', theme);
             } catch (e) { }
+            // Show the "demo" top bar only on deployed instances (not local dev). Set before
+            // first paint so it doesn't flash and the layout reserves its height from the start.
+            try {
+                var h = location.hostname;
+                if (h && h !== 'localhost' && h !== '127.0.0.1' && h !== '0.0.0.0' && h !== '[::1]') {
+                    document.documentElement.setAttribute('data-demo', '');
+                }
+            } catch (e) { }
             window.ravelinTheme = {
                 get: function () { return document.documentElement.getAttribute('data-bs-theme') || 'light'; },
                 set: function (t) {
@@ -227,6 +235,14 @@
 </head>
 
 <body>
+    @* Demonstration notice, shown only on deployed instances (see the data-demo flag above).
+       Sticky at the very top; the app layout offsets its sticky sidebar/top-row by --demo-bar-h. *@
+    <div class="demo-bar" role="note" aria-label="Demonstration notice">
+        <span class="demo-bar-inner">
+            <span class="demo-tag">Demo</span>
+            <span class="demo-text">Public demonstration of Ravelin, with sample data for illustration only.</span>
+        </span>
+    </div>
     <Routes @rendermode="@(new InteractiveWebAssemblyRenderMode(prerender: false))" />
     <script>window.ravelinGlobeMask = '@Assets["earth-mask.png"]';</script>
     <script src="@Assets["globe.js"]"></script>
