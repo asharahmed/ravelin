@@ -20,8 +20,8 @@ if [[ -z "$TAG" ]]; then
 fi
 
 # --- Config (from `terraform output`; matches azure-pipelines.yml) --------------
-ACR_NAME="acrravelindevs8066d"
-ACR_LOGIN_SERVER="acrravelindevs8066d.azurecr.io"
+ACR_NAME="acrravelindevzxyo1s"
+ACR_LOGIN_SERVER="acrravelindevzxyo1s.azurecr.io"
 RESOURCE_GROUP="rg-ravelin-dev"
 CONTAINER_APP="ca-ravelin-dev"
 IMAGE_REPO="ravelin"
@@ -35,9 +35,12 @@ echo "==> Deploying ${IMAGE_REPO}:${TAG} to ${CONTAINER_APP} (rg ${RESOURCE_GROU
 az account show --query "{sub:name, state:state}" -o tsv >/dev/null
 
 # --- 1. Build & test (fail fast before pushing anything) ------------------------
-echo "==> Build & test"
+# Only the unit tier gates a deploy here: the integration (Testcontainers SQL) and E2E
+# (Playwright) tiers need a running Docker daemon, which this manual/local path can't assume.
+# Those tiers run in CI (security.yml), which provisions Docker.
+echo "==> Build & test (unit tier)"
 dotnet build Ravelin.slnx -c "$BUILD_CONFIG" --nologo
-dotnet test  Ravelin.slnx -c "$BUILD_CONFIG" --no-build --nologo
+dotnet test tests/Ravelin.Tests/Ravelin.Tests.csproj -c "$BUILD_CONFIG" --no-build --nologo
 
 # --- 2. Build OCI image and push to ACR (no Docker daemon) ----------------------
 echo "==> Acquiring short-lived ACR token"
