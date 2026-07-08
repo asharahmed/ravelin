@@ -22,6 +22,7 @@ public class RavelinDbContext(DbContextOptions<RavelinDbContext> options)
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<FindingAlert> FindingAlerts => Set<FindingAlert>();
     public DbSet<AppError> AppErrors => Set<AppError>();
+    public DbSet<PostureSnapshot> PostureSnapshots => Set<PostureSnapshot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -934,6 +934,38 @@ public static class RavelinEndpoints
             });
         })
         .RequireAuthorization();
+
+        // Immutable org posture history (one snapshot per day). Admin-only — it aggregates every
+        // project, including ones a scoped user can't see. Oldest-first for charting.
+        app.MapGet("/api/posture/history", async (int? days, RavelinDbContext db) =>
+        {
+            var take = Math.Clamp(days ?? 90, 1, 730);
+            var snapshots = await db.PostureSnapshots
+                .AsNoTracking()
+                .OrderByDescending(s => s.SnapshotDate)
+                .Take(take)
+                .ToListAsync();
+            snapshots.Reverse();
+
+            var dtos = snapshots.Select(s => new PostureSnapshotDto
+            {
+                Date = s.SnapshotDate,
+                ProjectCount = s.ProjectCount,
+                TotalOpen = s.TotalOpen,
+                Breached = s.Breached,
+                DueSoon = s.DueSoon,
+                OnTrack = s.OnTrack,
+                CompliancePercent = s.CompliancePercent,
+                ActivelyExploited = s.ActivelyExploited,
+                OpenBySeverity = new SeverityCountsDto
+                {
+                    Critical = s.Critical, High = s.High, Medium = s.Medium, Low = s.Low, Unknown = s.Unknown,
+                },
+            }).ToList();
+
+            return Results.Ok(dtos);
+        })
+        .RequireAuthorization(policy => policy.RequireRole(RavelinRoles.Admin));
     }
 
     // --- SLA engine + triage (Stage 5) --------------------------------------------------

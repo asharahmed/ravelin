@@ -17,7 +17,8 @@ public readonly record struct ReEvaluateResult(int Scanned, int NewBreached, int
 /// </summary>
 public sealed class SlaReEvaluator(
     IServiceScopeFactory scopeFactory, NotificationService notifications,
-    IFindingEnricher enricher, TimeProvider clock, ILogger<SlaReEvaluator> logger)
+    IFindingEnricher enricher, PostureSnapshotService snapshots, TimeProvider clock,
+    ILogger<SlaReEvaluator> logger)
 {
     public async Task<ReEvaluateResult> ReEvaluateAsync(CancellationToken ct = default)
     {
@@ -31,6 +32,16 @@ public sealed class SlaReEvaluator(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Enrichment step failed; continuing with SLA re-evaluation.");
+        }
+
+        // Capture today's immutable posture snapshot (idempotent — one per day). Best-effort.
+        try
+        {
+            await snapshots.EnsureSnapshotAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Posture-snapshot step failed; continuing with SLA re-evaluation.");
         }
 
         using var scope = scopeFactory.CreateScope();

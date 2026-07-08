@@ -29,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<IngestionService>();
         services.AddSingleton<AuditService>();
         services.AddSingleton<NotificationService>();
+        services.AddSingleton<PostureSnapshotService>();
         services.AddSingleton<SlaReEvaluator>();
 
         // Exploitation-intelligence enrichment is inert until AddVulnerabilityIntelligence enables
