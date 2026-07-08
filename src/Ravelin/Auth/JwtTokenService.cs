@@ -21,10 +21,14 @@ public class JwtTokenService(IOptions<JwtOptions> options)
 {
     public const string RoleClaim = "role";
 
+    /// <summary>Identity security-stamp claim. Validated per request (see Program.cs) so a role
+    /// change, password reset, or disable revokes existing tokens immediately.</summary>
+    public const string StampClaim = "sstamp";
+
     private readonly JwtOptions _options = options.Value;
 
     public (string Token, DateTimeOffset ExpiresAt) CreateToken(
-        string userId, string email, IEnumerable<string> roles)
+        string userId, string email, IEnumerable<string> roles, string? securityStamp = null)
     {
         var expiresAt = DateTimeOffset.UtcNow.AddMinutes(_options.ExpiryMinutes);
 
@@ -34,6 +38,10 @@ public class JwtTokenService(IOptions<JwtOptions> options)
             new(JwtRegisteredClaimNames.Email, email),
         };
         claims.AddRange(roles.Select(r => new Claim(RoleClaim, r)));
+        if (!string.IsNullOrEmpty(securityStamp))
+        {
+            claims.Add(new Claim(StampClaim, securityStamp));
+        }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));
 

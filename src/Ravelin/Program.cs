@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
 using Azure.Core;
@@ -145,6 +146,30 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ClockSkew = TimeSpan.FromSeconds(30),
             RoleClaimType = JwtTokenService.RoleClaim,
             NameClaimType = "email",
+        };
+
+        // Validate the Identity security stamp on every request so a role change, password
+        // reset, or account disable revokes existing tokens immediately (not just at expiry).
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async ctx =>
+            {
+                var userId = ctx.Principal?.FindFirstValue("sub");
+                var tokenStamp = ctx.Principal?.FindFirstValue(JwtTokenService.StampClaim);
+                if (userId is null || string.IsNullOrEmpty(tokenStamp))
+                {
+                    ctx.Fail("Missing subject or security stamp.");
+                    return;
+                }
+
+                var users = ctx.HttpContext.RequestServices.GetRequiredService<UserManager<IdentityUser>>();
+                var user = await users.FindByIdAsync(userId);
+                if (user is null ||
+                    !string.Equals(await users.GetSecurityStampAsync(user), tokenStamp, StringComparison.Ordinal))
+                {
+                    ctx.Fail("Session is no longer valid.");
+                }
+            },
         };
     })
     .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(

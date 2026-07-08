@@ -60,7 +60,8 @@ public static class RavelinEndpoints
             await audit.RecordAsync(user.Email!, "auth.login");
 
             var roles = await users.GetRolesAsync(user);
-            var (token, expiresAt) = jwt.CreateToken(user.Id, user.Email!, roles);
+            var stamp = await users.GetSecurityStampAsync(user);
+            var (token, expiresAt) = jwt.CreateToken(user.Id, user.Email!, roles, stamp);
 
             return Results.Ok(new LoginResponse
             {
@@ -104,7 +105,8 @@ public static class RavelinEndpoints
             await audit.RecordAsync(user.Email!, "auth.register", user.Email, "self-service Viewer");
 
             var roles = await users.GetRolesAsync(user);
-            var (token, expiresAt) = jwt.CreateToken(user.Id, user.Email!, roles);
+            var stamp = await users.GetSecurityStampAsync(user);
+            var (token, expiresAt) = jwt.CreateToken(user.Id, user.Email!, roles, stamp);
 
             return Results.Ok(new LoginResponse
             {
@@ -412,6 +414,9 @@ public static class RavelinEndpoints
                 await users.RemoveFromRolesAsync(user, current);
             }
             await users.AddToRoleAsync(user, req.Role);
+            // Revoke the user's existing tokens so the new role takes effect immediately, not at
+            // token expiry (password change/reset already rotate the stamp via Identity).
+            await users.UpdateSecurityStampAsync(user);
             await audit.RecordAsync(ActorOf(actor), "user.role", user.Email, $"{current.FirstOrDefault() ?? "none"} -> {req.Role}");
 
             return Results.Ok(new UserDto { Id = user.Id, Email = user.Email ?? "", Role = req.Role });
