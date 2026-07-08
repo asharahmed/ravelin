@@ -10,7 +10,7 @@ namespace Ravelin.Infrastructure.Services;
 /// Orchestrates ingestion of one scan: loads the project's findings and SLA policies, runs
 /// the pure <see cref="ScanReconciler"/>, persists changes, and records the scan.
 /// </summary>
-public class IngestionService(RavelinDbContext db)
+public class IngestionService(RavelinDbContext db, TimeProvider clock)
 {
     // Two concurrent scans of the same project each load `existing` before the other commits, so
     // both can queue an INSERT for the same brand-new finding (dedup unique-index violation) or
@@ -50,7 +50,7 @@ public class IngestionService(RavelinDbContext db)
         IReadOnlyCollection<IncomingFinding> incoming,
         CancellationToken ct)
     {
-        var now = DateTimeOffset.UtcNow;
+        var now = clock.GetUtcNow();
 
         var slaDays = await db.SlaPolicies
             .ToDictionaryAsync(p => p.Severity, p => p.RemediationDays, ct);

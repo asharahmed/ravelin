@@ -17,7 +17,7 @@ public readonly record struct ReEvaluateResult(int Scanned, int NewBreached, int
 /// </summary>
 public sealed class SlaReEvaluator(
     IServiceScopeFactory scopeFactory, NotificationService notifications,
-    IFindingEnricher enricher, ILogger<SlaReEvaluator> logger)
+    IFindingEnricher enricher, TimeProvider clock, ILogger<SlaReEvaluator> logger)
 {
     public async Task<ReEvaluateResult> ReEvaluateAsync(CancellationToken ct = default)
     {
@@ -36,7 +36,7 @@ public sealed class SlaReEvaluator(
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<RavelinDbContext>();
         var audit = scope.ServiceProvider.GetRequiredService<AuditService>();
-        var now = DateTimeOffset.UtcNow;
+        var now = clock.GetUtcNow();
 
         var findings = await db.Findings
             .Where(f => f.Status == FindingStatus.Open && !f.Project.IsArchived)

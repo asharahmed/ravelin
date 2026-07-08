@@ -18,6 +18,7 @@ public sealed class FindingEnrichmentService(
     IServiceScopeFactory scopeFactory,
     IVulnerabilityIntelligence intelligence,
     IOptions<VulnIntelOptions> options,
+    TimeProvider clock,
     ILogger<FindingEnrichmentService> logger) : IFindingEnricher
 {
     public async Task<EnrichmentResult> EnrichAsync(CancellationToken ct = default)
@@ -61,7 +62,7 @@ public sealed class FindingEnrichmentService(
         }
 
         var slaDays = await db.SlaPolicies.ToDictionaryAsync(p => p.Severity, p => p.RemediationDays, ct);
-        var now = DateTimeOffset.UtcNow;
+        var now = clock.GetUtcNow();
         int updated = 0, escalated = 0;
 
         foreach (var f in findings)
