@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Ravelin.Auth;
 using Ravelin.Domain.Entities;
+using Ravelin.Domain.Enums;
 using Ravelin.Infrastructure;
 using Ravelin.Infrastructure.Services;
 using Respawn;
@@ -85,6 +86,44 @@ public sealed class RavelinFixture : IAsyncLifetime
     {
         using var scope = _factory.Services.CreateScope();
         await action(scope.ServiceProvider.GetRequiredService<RavelinDbContext>());
+    }
+
+    /// <summary>Creates a project (with one open finding) at the given visibility, for authz tests.</summary>
+    public async Task<Guid> SeedProjectAsync(string key, bool isPublic)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<RavelinDbContext>();
+
+        var project = new Project { Key = key, Name = key, IsPublic = isPublic };
+        db.Projects.Add(project);
+        db.Findings.Add(new Finding
+        {
+            ProjectId = project.Id,
+            VulnerabilityId = "CVE-2024-0001",
+            PackageName = "seed-pkg",
+            PackageVersion = "1.0.0",
+            Title = "seed finding",
+            Severity = Severity.High,
+            Status = FindingStatus.Open,
+            FirstDetectedAt = DateTimeOffset.UtcNow,
+            LastSeenAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+        return project.Id;
+    }
+
+    /// <summary>Grants a seeded user (by email) membership of a project (by key).</summary>
+    public async Task GrantMembershipAsync(string email, string projectKey)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<RavelinDbContext>();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+
+        var user = await users.FindByEmailAsync(email)
+            ?? throw new InvalidOperationException($"No seeded user {email}");
+        var project = await db.Projects.FirstAsync(p => p.Key == projectKey);
+        db.ProjectMemberships.Add(new ProjectMembership { UserId = user.Id, ProjectId = project.Id });
+        await db.SaveChangesAsync();
     }
 
     /// <summary>Idempotently ensures a user exists with exactly the given role. Roles/users live

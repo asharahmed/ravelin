@@ -14,6 +14,7 @@ public class RavelinDbContext(DbContextOptions<RavelinDbContext> options)
     : IdentityDbContext<IdentityUser>(options)
 {
     public DbSet<Project> Projects => Set<Project>();
+    public DbSet<ProjectMembership> ProjectMemberships => Set<ProjectMembership>();
     public DbSet<Scan> Scans => Set<Scan>();
     public DbSet<Finding> Findings => Set<Finding>();
     public DbSet<SlaPolicy> SlaPolicies => Set<SlaPolicy>();

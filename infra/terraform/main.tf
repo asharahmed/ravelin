@@ -197,6 +197,13 @@ resource "azurerm_container_app" "main" {
         value = "true"
       }
 
+      # Public demo: allow self-service signup (read-only Viewer). Defaults to Disabled otherwise.
+      # Demo projects are seeded public, so a new Viewer immediately sees the showcase data.
+      env {
+        name  = "Registration__Mode"
+        value = "Open"
+      }
+
       env {
         name        = "Reeval__Token"
         secret_name = "reeval-token"

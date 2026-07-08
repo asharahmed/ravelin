@@ -152,6 +152,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+// Self-service registration policy (Disabled by default; the public demo sets Registration:Mode=Open).
+builder.Services.Configure<RegistrationOptions>(
+    builder.Configuration.GetSection(RegistrationOptions.SectionName));
+
 var app = builder.Build();
 
 // Apply role + seed-user setup at startup. A transient DB outage here must not take the
