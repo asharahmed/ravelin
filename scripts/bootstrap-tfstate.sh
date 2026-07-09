@@ -39,6 +39,17 @@ az storage account create \
   --allow-blob-public-access false \
   --output none
 
+# Harden the state account: the Terraform state file holds every secret in plaintext, so enable
+# blob versioning + soft-delete to recover it from an accidental overwrite or delete. Safe to
+# re-run (idempotent). Network default-deny / shared-key-disable are deliberately NOT set here —
+# they need coordination with the azurerm backend auth mode to avoid locking Terraform out.
+az storage account blob-service-properties update \
+  --account-name "$SA" --resource-group "$RG" \
+  --enable-versioning true \
+  --enable-delete-retention true --delete-retention-days 7 \
+  --enable-container-delete-retention true --container-delete-retention-days 7 \
+  --output none
+
 # Create the state container using the account key (retrieved via your az session).
 # Terraform's azurerm backend likewise retrieves this key automatically from your
 # az login, so no data-plane role assignment / propagation wait is needed.
