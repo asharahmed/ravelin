@@ -213,6 +213,16 @@ public static class RavelinEndpoints
                 .RequireAuthenticatedUser())
             .RequireRateLimiting("ingest")
             .DisableAntiforgery();
+
+        // SARIF 2.1.0 — the universal analysis format (CodeQL, Semgrep, Trivy, Grype, …). One
+        // endpoint ingests almost any scanner's output, including Ravelin's own CI SARIF.
+        app.MapPost("/api/ingest/sarif", (HttpRequest http, ClaimsPrincipal user, IngestionService ingestion) =>
+                IngestRawAsync(http, user, ingestion, "sarif", SarifAdapter.Parse))
+            .RequireAuthorization(policy => policy
+                .AddAuthenticationSchemes(ApiKeyAuthenticationHandler.SchemeName)
+                .RequireAuthenticatedUser())
+            .RequireRateLimiting("ingest")
+            .DisableAntiforgery();
     }
 
     // Reads a raw scanner report from the body, maps it with the given adapter, and ingests
