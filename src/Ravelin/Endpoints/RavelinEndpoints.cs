@@ -1077,7 +1077,7 @@ public static class RavelinEndpoints
                 return Results.NotFound($"Finding '{id}' not found in project '{key}'.");
             }
 
-            var outcome = FindingTriage.Apply(finding, target, req.Note, DateTimeOffset.UtcNow);
+            var outcome = FindingTriage.Apply(finding, target, req.Note, DateTimeOffset.UtcNow, req.AcceptedUntil);
             if (!outcome.Success)
             {
                 return Results.BadRequest(outcome.Error);
@@ -1287,6 +1287,7 @@ public static class RavelinEndpoints
             EpssScore = f.EpssScore,
             EpssPercentile = f.EpssPercentile,
             RiskLabel = RiskEvaluator.Label(f.IsKnownExploited, f.EpssScore, epssThreshold),
+            AcceptedRiskUntil = f.AcceptedRiskUntil,
         };
     }
 }

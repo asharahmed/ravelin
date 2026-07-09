@@ -28,7 +28,8 @@ public static class FindingTriage
     };
 
     public static TriageOutcome Apply(
-        Finding finding, FindingStatus target, string? note, DateTimeOffset now)
+        Finding finding, FindingStatus target, string? note, DateTimeOffset now,
+        DateTimeOffset? acceptedUntil = null)
     {
         if (!AllowedTargets.Contains(target))
         {
@@ -42,11 +43,19 @@ public static class FindingTriage
                 "A justification note is required to mark a finding false-positive or accepted-risk.");
         }
 
+        if (target == FindingStatus.AcceptedRisk && acceptedUntil is DateTimeOffset until && until <= now)
+        {
+            return TriageOutcome.Fail("The accepted-risk expiry must be in the future.");
+        }
+
         finding.Status = target;
         if (!string.IsNullOrWhiteSpace(note))
         {
             finding.TriageNote = note.Trim();
         }
+
+        // Only an accepted-risk decision carries an expiry; any other transition clears it.
+        finding.AcceptedRiskUntil = target == FindingStatus.AcceptedRisk ? acceptedUntil : null;
 
         // ResolvedAt tracks when a finding was actually fixed; reopening clears it. Suppressed
         // findings (FP / accepted-risk) are excluded from metrics regardless, so leave it as-is.
@@ -59,4 +68,9 @@ public static class FindingTriage
 
         return TriageOutcome.Ok();
     }
+
+    /// <summary>True when a finding's accepted-risk decision has lapsed and it should be reopened.</summary>
+    public static bool IsExpiredAcceptance(Finding finding, DateTimeOffset now) =>
+        finding.Status == FindingStatus.AcceptedRisk &&
+        finding.AcceptedRiskUntil is DateTimeOffset until && until <= now;
 }

@@ -85,4 +85,58 @@ public class FindingTriageTests
         Assert.False(outcome.Success);
         Assert.Equal(FindingStatus.Open, finding.Status);
     }
+
+    [Fact]
+    public void Accepted_risk_with_a_future_expiry_is_recorded()
+    {
+        var finding = OpenFinding();
+        var until = Now.AddDays(30);
+
+        var outcome = FindingTriage.Apply(finding, FindingStatus.AcceptedRisk, "risk accepted", Now, until);
+
+        Assert.True(outcome.Success);
+        Assert.Equal(FindingStatus.AcceptedRisk, finding.Status);
+        Assert.Equal(until, finding.AcceptedRiskUntil);
+    }
+
+    [Fact]
+    public void Accepted_risk_expiry_in_the_past_is_rejected()
+    {
+        var finding = OpenFinding();
+
+        var outcome = FindingTriage.Apply(finding, FindingStatus.AcceptedRisk, "risk accepted", Now, Now.AddDays(-1));
+
+        Assert.False(outcome.Success);
+        Assert.Contains("future", outcome.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(FindingStatus.Open, finding.Status);
+    }
+
+    [Fact]
+    public void Transitioning_away_from_accepted_risk_clears_the_expiry()
+    {
+        var finding = OpenFinding();
+        FindingTriage.Apply(finding, FindingStatus.AcceptedRisk, "accepted", Now, Now.AddDays(30));
+        Assert.NotNull(finding.AcceptedRiskUntil);
+
+        var outcome = FindingTriage.Apply(finding, FindingStatus.Open, note: null, Now);
+
+        Assert.True(outcome.Success);
+        Assert.Null(finding.AcceptedRiskUntil);
+    }
+
+    [Fact]
+    public void IsExpiredAcceptance_detects_only_lapsed_acceptances()
+    {
+        var lapsed = OpenFinding();
+        FindingTriage.Apply(lapsed, FindingStatus.AcceptedRisk, "x", Now, Now.AddDays(10));
+        Assert.False(FindingTriage.IsExpiredAcceptance(lapsed, Now));          // not yet
+        Assert.True(FindingTriage.IsExpiredAcceptance(lapsed, Now.AddDays(11))); // lapsed
+
+        var noExpiry = OpenFinding();
+        FindingTriage.Apply(noExpiry, FindingStatus.AcceptedRisk, "x", Now);   // never expires
+        Assert.False(FindingTriage.IsExpiredAcceptance(noExpiry, Now.AddYears(5)));
+
+        var open = OpenFinding();
+        Assert.False(FindingTriage.IsExpiredAcceptance(open, Now));            // not accepted-risk
+    }
 }

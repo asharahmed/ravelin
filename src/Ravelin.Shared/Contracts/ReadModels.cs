@@ -50,4 +50,7 @@ public record FindingDto
 
     /// <summary>Short risk badge ("Actively exploited" / "Likely exploited"), or null.</summary>
     public string? RiskLabel { get; init; }
+
+    /// <summary>When an accepted-risk decision expires (auto-reopen), if set.</summary>
+    public DateTimeOffset? AcceptedRiskUntil { get; init; }
 }
