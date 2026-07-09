@@ -133,4 +133,20 @@ stages:
                       FQDN=$(az containerapp show --name "$(containerAppName)" \
                         --resource-group "$(resourceGroup)" \
                         --query properties.configuration.ingress.fqdn -o tsv)
-                      echo "Deployed: https://$FQDN"
+
+                      # Health gate: fail the deploy if the new revision doesn't become ready
+                      # (readiness probes the DB). Container Apps keeps the previous revision, so a
+                      # failed gate signals a bad deploy instead of silently serving 500s.
+                      echo "Probing https://$FQDN/health/ready ..."
+                      ok=0
+                      for i in $(seq 1 20); do
+                        code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "https://$FQDN/health/ready" || echo 000)
+                        echo "  attempt $i: HTTP $code"
+                        [ "$code" = "200" ] && { ok=1; break; }
+                        sleep 15
+                      done
+                      if [ "$ok" != "1" ]; then
+                        echo "##[error]New revision did not become healthy (/health/ready != 200)."
+                        exit 1
+                      fi
+                      echo "Deployed & healthy: https://$FQDN"

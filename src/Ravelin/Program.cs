@@ -183,16 +183,30 @@ builder.Services.Configure<RegistrationOptions>(
 
 var app = builder.Build();
 
-// Apply role + seed-user setup at startup. A transient DB outage here must not take the
-// whole app down — log and continue; seeding is idempotent and retried on next start.
+// Apply any pending EF migrations on boot so a deploy is self-contained (no out-of-band
+// migration step). Idempotent; EF takes a SQL migration lock so concurrent instances are safe.
+// A failed/partial migration must NOT be swallowed in Production — the app would serve against a
+// mismatched schema. Fail fast so the deploy health gate catches it and can roll back. (Transient
+// blips are already retried inside MigrateAsync via EnableRetryOnFailure.)
 try
 {
-    // Apply any pending EF migrations on boot so a deploy is self-contained (no out-of-band
-    // migration step). Idempotent; EF takes a SQL migration lock so concurrent instances are safe.
-    using (var scope = app.Services.CreateScope())
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<RavelinDbContext>().Database.MigrateAsync();
+}
+catch (Exception ex)
+{
+    app.Services.GetRequiredService<ILogger<Program>>()
+        .LogCritical(ex, "Database migration failed at startup.");
+    if (app.Environment.IsProduction())
     {
-        await scope.ServiceProvider.GetRequiredService<RavelinDbContext>().Database.MigrateAsync();
+        throw; // fail closed: never serve against an unmigrated/mismatched schema in Production
     }
+}
+
+// Role + seed-user setup is best-effort: idempotent and retried on next start, so a hiccup here
+// must never take the app down.
+try
+{
     await IdentitySeeder.SeedAsync(app.Services, app.Configuration);
     // Optional: seed realistic demo data for the public showcase (gated by Seed:DemoData).
     await DemoDataSeeder.SeedAsync(app.Services, app.Configuration);
