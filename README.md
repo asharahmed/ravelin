@@ -184,6 +184,24 @@ infra/terraform/          Azure infrastructure
 
 ## Running locally
 
+### Quickstart (Docker Compose)
+
+The fastest path — brings up the app **and** SQL Server, migrated and demo-seeded, in one command.
+Requires only Docker.
+
+```bash
+git clone https://github.com/asharahmed/ravelin.git
+cd ravelin
+cp .env.example .env        # then edit the secrets in .env
+docker compose up --build
+```
+
+Open <http://localhost:8080> and sign in with the seeded admin/demo accounts from your `.env`.
+The app applies EF migrations on boot and seeds demo projects, so the dashboard shows a real
+posture right away. `docker compose down -v` tears it down (and removes the SQL volume).
+
+### From the .NET SDK
+
 Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download), Docker (for SQL Server), and
 the EF Core tools (`dotnet tool install --global dotnet-ef`).
 

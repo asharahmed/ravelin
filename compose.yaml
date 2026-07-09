@@ -1,0 +1,56 @@
+# Ravelin — one-command local run: the app + SQL Server, migrated and demo-seeded.
+#
+#   cp .env.example .env        # then edit the secrets in .env
+#   docker compose up --build
+#
+# Open http://localhost:8080 and sign in with the seeded admin / demo accounts from .env.
+# The app applies EF migrations on boot and (Seed__DemoData=true) seeds demo projects, so the
+# dashboard shows a real posture immediately. `docker compose down -v` removes the SQL volume.
+
+name: ravelin
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD}
+      MSSQL_PID: Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - ravelin-sql:/var/opt/mssql
+    healthcheck:
+      # Ready when a query succeeds. Try the current (tools18) and legacy sqlcmd paths so this
+      # works across SQL Server image versions.
+      test:
+        - CMD-SHELL
+        - /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$${MSSQL_SA_PASSWORD}" -C -Q "SELECT 1" -b
+          || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$${MSSQL_SA_PASSWORD}" -Q "SELECT 1" -b
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: "8080"
+      ConnectionStrings__RavelinDb: "Server=db,1433;Database=ravelin;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;Encrypt=False"
+      Jwt__SigningKey: ${JWT_SIGNING_KEY}
+      Seed__AdminEmail: ${ADMIN_EMAIL}
+      Seed__AdminPassword: ${ADMIN_PASSWORD}
+      Seed__DemoEmail: ${DEMO_EMAIL}
+      Seed__DemoPassword: ${DEMO_PASSWORD}
+      Seed__DemoData: "true"
+      # Local instance: allow self-service signup (read-only Viewer) so you can click around.
+      Registration__Mode: "Open"
+
+volumes:
+  ravelin-sql:
