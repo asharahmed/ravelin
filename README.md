@@ -59,7 +59,7 @@ It does not scan code itself, and it is not a GRC platform.
 | Lightweight, no per-seat pricing | yes | — | yes |
 
 Scanners report findings but don't enforce remediation timelines across tools. GRC suites
-automate audits company-wide, but they're broad, SaaS-only, and priced for it — vulnerability
+automate audits company-wide, but they're broad, SaaS-only, and priced for it: vulnerability
 SLAs are a small part of a large platform. Ravelin does only the vulnerability-SLA layer:
 vendor-neutral, self-hosted, and free. If you need continuous evidence across every control, use
 a GRC suite and let Ravelin own the vulnerability slice.
@@ -68,8 +68,8 @@ a GRC suite and let Ravelin own the vulnerability slice.
 
 1. A pipeline step POSTs scan results to `/api/ingest` with a scoped, hashed API key. Ravelin
    deduplicates against previous scans and auto-resolves findings that are no longer present.
-2. Each finding takes a deadline from its severity — Critical 7d, High 30d, Medium 90d, Low 180d
-   by default — measured from when it was first seen. It's breached once it passes the deadline.
+2. Each finding takes a deadline from its severity (Critical 7d, High 30d, Medium 90d, Low 180d
+   by default), measured from when it was first seen. It's breached once it passes the deadline.
 3. Dashboards show compliance, breaches, and the trend. Analysts triage findings; suppressing one
    requires a justification.
 
@@ -97,7 +97,7 @@ curl -X POST https://<host>/api/ingest \
 # -> { "scanId": "...", "created": 1, "reopened": 0, "resolved": 0, "seen": 0, "openTotal": 1 }
 ```
 
-Or pipe a scanner's native output straight in — Ravelin maps Trivy, Grype, and `dotnet list
+Or pipe a scanner's native output straight in: Ravelin maps Trivy, Grype, and `dotnet list
 package` JSON itself, no transform step:
 
 ```bash
@@ -121,34 +121,34 @@ a configured `RAVELIN_INGEST_KEY` secret and is a no-op until that key is wired 
 
 Beyond ingestion and SLA tracking, the app ships:
 
-- **Risk-based prioritization** — findings are enriched with **CISA KEV** (known actively exploited)
+- **Risk-based prioritization:** findings are enriched with **CISA KEV** (known actively exploited)
   and **FIRST EPSS** (predicted exploitation probability). An actively-exploited or high-EPSS
   finding gets a **tighter, risk-adjusted SLA** than its CVSS severity alone would set, and lists
   sort by real risk (KEV first). Severity is a weak triage signal on its own; this prioritizes by
   exploitation in the wild. Uses only public feeds; enabled with `VulnIntel__Enabled=true`.
-- **SLA alerting** — an hourly re-evaluation raises breach / due-soon alerts and dispatches them
+- **SLA alerting:** an hourly re-evaluation raises breach / due-soon alerts and dispatches them
   to a per-project **Slack or generic webhook** (SSRF-validated). Alerts are acknowledgeable, with
   an unacknowledged count in the nav. On scale-to-zero infra the hourly pass is driven by a tiny
   Container Apps cron job so no always-on replica is needed.
-- **Audit trail** — an append-only log of security-relevant actions (logins, role changes, key
+- **Audit trail:** an append-only log of security-relevant actions (logins, role changes, key
   create/revoke, triage, SLA edits, webhook config…), viewable by admins.
-- **Error capture** — unhandled exceptions are recorded as deduplicated, secret-scrubbed
+- **Error capture:** unhandled exceptions are recorded as deduplicated, secret-scrubbed
   `AppError`s and can be filed as **Linear** issues when a tracker is configured.
-- **Admin console** — self-service signup (read-only Viewer), user & role management, admin
+- **Admin console:** self-service signup (read-only Viewer), user & role management, admin
   password reset, project archive/unarchive, and API-key list/revoke.
-- **Published API** — the OpenAPI document at `/openapi/v1.json` with an interactive **Scalar**
+- **Published API:** the OpenAPI document at `/openapi/v1.json` with an interactive **Scalar**
   reference at `/scalar`.
-- **Point-in-time compliance report** — a print/PDF-friendly breach report.
+- **Point-in-time compliance report:** a print/PDF-friendly breach report.
 
 See [`docs/architecture.md`](./docs/architecture.md) for how these fit together and
 [`docs/THREAT-MODEL.md`](./docs/THREAT-MODEL.md) for the STRIDE analysis.
 
 ## Authentication
 
-- **People** — ASP.NET Core Identity with JWTs and three roles: Admin, Analyst, Viewer, enforced
+- **People:** ASP.NET Core Identity with JWTs and three roles: Admin, Analyst, Viewer, enforced
   per endpoint. Self-service signup creates a read-only Viewer; Analyst and Admin are assigned by
   an Admin.
-- **Pipelines** — scoped API keys, stored hashed (SHA-256, 256-bit). A key is bound to one
+- **Pipelines:** scoped API keys, stored hashed (SHA-256, 256-bit). A key is bound to one
   project, and the scope of an ingested scan comes from the key, not the request route.
 
 ## Architecture
@@ -186,7 +186,7 @@ infra/terraform/          Azure infrastructure
 
 ### Quickstart (Docker Compose)
 
-The fastest path — brings up the app **and** SQL Server, migrated and demo-seeded, in one command.
+The fastest path: brings up the app **and** SQL Server, migrated and demo-seeded, in one command.
 Requires only Docker.
 
 ```bash
@@ -247,15 +247,15 @@ Ravelin is a security tool, so it's built to model good practice and to scan its
   `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) are sent on every response.
 - Auth and ingestion endpoints are rate-limited per client IP (brute-force / abuse defence).
 - Application secrets (database connection, JWT signing key, seeded passwords) live in **Azure
-  Key Vault** and are read at runtime via a managed identity — never inlined or logged.
+  Key Vault** and are read at runtime via a managed identity, never inlined or logged.
 - The CI pipeline scans Ravelin's own dependencies, code, container image, and IaC.
 
-The full STRIDE threat model — assets, trust boundaries, and each threat mapped to the mitigation
-in the code — is in [`docs/THREAT-MODEL.md`](./docs/THREAT-MODEL.md).
+The full STRIDE threat model (assets, trust boundaries, and each threat mapped to the mitigation
+in the code) is in [`docs/THREAT-MODEL.md`](./docs/THREAT-MODEL.md).
 
 ## Status
 
-Live at <https://getravelin.xyz>. Built in reviewable stages — Stages 0–8 are shipped, plus SLA
+Live at <https://getravelin.xyz>. Built in reviewable stages. Stages 0–8 are shipped, plus SLA
 alerting and operational hardening:
 
 | Stage | Scope | State |
