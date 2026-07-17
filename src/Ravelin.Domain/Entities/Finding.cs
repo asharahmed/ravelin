@@ -48,6 +48,11 @@ public class Finding
     /// <summary>Free-text triage note (e.g. justification for accepted-risk/false-positive).</summary>
     public string? TriageNote { get; set; }
 
+    /// <summary>Expiry for an <see cref="FindingStatus.AcceptedRisk"/> decision. When set and past,
+    /// the finding is automatically reopened by the re-evaluator so accepted risks don't linger
+    /// forever. Null means the acceptance does not expire.</summary>
+    public DateTimeOffset? AcceptedRiskUntil { get; set; }
+
     // --- Exploitation intelligence (enrichment; keyed by CVE) ---
     /// <summary>True when this finding's CVE is in the CISA Known Exploited Vulnerabilities
     /// catalog — the strongest "fix this now" signal. Drives risk-adjusted SLA and prioritization.</summary>

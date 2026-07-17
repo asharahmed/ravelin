@@ -49,6 +49,26 @@ public sealed class SlaReEvaluator(
         var audit = scope.ServiceProvider.GetRequiredService<AuditService>();
         var now = clock.GetUtcNow();
 
+        // Reopen accepted-risk findings whose acceptance has lapsed, so they re-enter the SLA
+        // process (severity-only deadline now; enrichment re-tightens KEV/EPSS next pass).
+        var expiredAcceptance = await db.Findings
+            .Where(f => f.Status == FindingStatus.AcceptedRisk && f.AcceptedRiskUntil != null && f.AcceptedRiskUntil <= now)
+            .ToListAsync(ct);
+        if (expiredAcceptance.Count > 0)
+        {
+            var slaDays = await db.SlaPolicies.ToDictionaryAsync(p => p.Severity, p => p.RemediationDays, ct);
+            foreach (var f in expiredAcceptance)
+            {
+                f.Status = FindingStatus.Open;
+                f.AcceptedRiskUntil = null;
+                f.ResolvedAt = null;
+                f.SlaDueAt = SlaEvaluator.ComputeDueDate(f.FirstDetectedAt, f.Severity, slaDays);
+            }
+            await db.SaveChangesAsync(ct);
+            await audit.RecordAsync("system", "finding.acceptance.expired", null,
+                $"{expiredAcceptance.Count} accepted-risk finding(s) reopened");
+        }
+
         var findings = await db.Findings
             .Where(f => f.Status == FindingStatus.Open && !f.Project.IsArchived)
             .Select(f => new

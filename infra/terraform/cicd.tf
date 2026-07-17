@@ -23,10 +23,29 @@ resource "azurerm_role_assignment" "cicd_acr_push" {
   principal_id         = azurerm_user_assigned_identity.cicd.principal_id
 }
 
-# Update the Container App image (the pipeline's Deploy stage). Contributor on the
-# resource group is the smallest built-in role that covers `az containerapp update`.
-resource "azurerm_role_assignment" "cicd_rg_contributor" {
-  scope                = azurerm_resource_group.main.id
-  role_definition_name = "Contributor"
-  principal_id         = azurerm_user_assigned_identity.cicd.principal_id
+# Update the Container App image (the pipeline's Deploy stage). A custom role scoped to the one
+# Container App — least privilege — instead of Contributor on the whole resource group (which
+# could also delete the SQL DB, read storage keys, or tear down the app/Key Vault).
+resource "azurerm_role_definition" "cicd_containerapp_deploy" {
+  name        = "Ravelin CI Container App Deploy (${local.name_prefix})"
+  scope       = azurerm_container_app.main.id
+  description = "Least-privilege: read/update the Ravelin Container App and its revisions only."
+
+  permissions {
+    actions = [
+      "Microsoft.App/containerApps/read",
+      "Microsoft.App/containerApps/write",
+      "Microsoft.App/containerApps/revisions/read",
+      "Microsoft.App/containerApps/revisions/*/action",
+    ]
+    not_actions = []
+  }
+
+  assignable_scopes = [azurerm_container_app.main.id]
+}
+
+resource "azurerm_role_assignment" "cicd_containerapp_deploy" {
+  scope              = azurerm_container_app.main.id
+  role_definition_id = azurerm_role_definition.cicd_containerapp_deploy.role_definition_resource_id
+  principal_id       = azurerm_user_assigned_identity.cicd.principal_id
 }

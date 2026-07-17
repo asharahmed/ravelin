@@ -7,10 +7,11 @@ WORKDIR /src
 # Copy manifests first so `restore` is cached unless a .csproj/solution changes.
 COPY global.json ./
 COPY Ravelin.slnx ./
-COPY src/Ravelin/Ravelin.csproj                 src/Ravelin/
-COPY src/Ravelin.Client/Ravelin.Client.csproj   src/Ravelin.Client/
-COPY src/Ravelin.Domain/Ravelin.Domain.csproj   src/Ravelin.Domain/
-COPY src/Ravelin.Shared/Ravelin.Shared.csproj   src/Ravelin.Shared/
+COPY src/Ravelin/Ravelin.csproj                             src/Ravelin/
+COPY src/Ravelin.Client/Ravelin.Client.csproj               src/Ravelin.Client/
+COPY src/Ravelin.Domain/Ravelin.Domain.csproj               src/Ravelin.Domain/
+COPY src/Ravelin.Shared/Ravelin.Shared.csproj               src/Ravelin.Shared/
+COPY src/Ravelin.Infrastructure/Ravelin.Infrastructure.csproj src/Ravelin.Infrastructure/
 RUN dotnet restore src/Ravelin/Ravelin.csproj
 
 # Copy the remaining source and publish the server (pulls in client/shared/domain).

@@ -7,6 +7,10 @@ public record TriageFindingRequest
 {
     public required string Status { get; init; }
     public string? Note { get; init; }
+
+    /// <summary>For an AcceptedRisk decision, an optional expiry after which the finding is
+    /// automatically reopened. Must be in the future; null means the acceptance never expires.</summary>
+    public DateTimeOffset? AcceptedUntil { get; init; }
 }
 
 /// <summary>One severity's remediation SLA (days), as read or set by an admin.</summary>
