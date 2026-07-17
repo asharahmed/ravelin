@@ -50,3 +50,18 @@ public record TrendPointDto
     public required int Opened { get; init; }
     public required int Resolved { get; init; }
 }
+
+/// <summary>An immutable, point-in-time record of org posture (one per day). Historical figures
+/// don't change as live deadlines pass — the number an auditor saw stays fixed.</summary>
+public record PostureSnapshotDto
+{
+    public required DateOnly Date { get; init; }
+    public required int ProjectCount { get; init; }
+    public required int TotalOpen { get; init; }
+    public required int Breached { get; init; }
+    public required int DueSoon { get; init; }
+    public required int OnTrack { get; init; }
+    public required double CompliancePercent { get; init; }
+    public required int ActivelyExploited { get; init; }
+    public required SeverityCountsDto OpenBySeverity { get; init; }
+}

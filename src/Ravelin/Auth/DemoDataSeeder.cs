@@ -41,12 +41,20 @@ public static class DemoDataSeeder
 
         foreach (var spec in Catalogue)
         {
-            if (await db.Projects.AnyAsync(p => p.Key == spec.Key))
+            var existing = await db.Projects.FirstOrDefaultAsync(p => p.Key == spec.Key);
+            if (existing is not null)
             {
-                continue; // already seeded
+                // Demo projects are public so any self-registered Viewer sees the showcase.
+                // Flip already-seeded projects too (they predate per-project authorization).
+                if (!existing.IsPublic)
+                {
+                    existing.IsPublic = true;
+                    await db.SaveChangesAsync();
+                }
+                continue;
             }
 
-            var project = new Project { Key = spec.Key, Name = spec.Name, RepositoryUrl = spec.Repo };
+            var project = new Project { Key = spec.Key, Name = spec.Name, RepositoryUrl = spec.Repo, IsPublic = true };
             db.Projects.Add(project);
 
             foreach (var f in spec.Findings)

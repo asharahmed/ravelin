@@ -24,6 +24,10 @@ public class Project
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
+    /// <summary>When true, any authenticated user can read this project (used for the public demo).
+    /// When false (the default for real projects), only Admins and explicit members can see it.</summary>
+    public bool IsPublic { get; set; }
+
     /// <summary>Archived projects are hidden from the default dashboard/lists but keep their
     /// data and stop accruing new alerts. Reversible.</summary>
     public bool IsArchived { get; set; }

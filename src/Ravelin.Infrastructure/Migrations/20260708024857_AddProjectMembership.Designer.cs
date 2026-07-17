@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Ravelin.Infrastructure;
 
@@ -11,9 +12,11 @@ using Ravelin.Infrastructure;
 namespace Ravelin.Infrastructure.Migrations
 {
     [DbContext(typeof(RavelinDbContext))]
-    partial class RavelinDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260708024857_AddProjectMembership")]
+    partial class AddProjectMembership
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -510,62 +513,6 @@ namespace Ravelin.Infrastructure.Migrations
                     b.HasIndex("ProjectId", "RaisedAt");
 
                     b.ToTable("FindingAlerts");
-                });
-
-            modelBuilder.Entity("Ravelin.Domain.Entities.PostureSnapshot", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("ActivelyExploited")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Breached")
-                        .HasColumnType("int");
-
-                    b.Property<double>("CompliancePercent")
-                        .HasColumnType("float");
-
-                    b.Property<int>("Critical")
-                        .HasColumnType("int");
-
-                    b.Property<int>("DueSoon")
-                        .HasColumnType("int");
-
-                    b.Property<int>("High")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Low")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Medium")
-                        .HasColumnType("int");
-
-                    b.Property<int>("OnTrack")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ProjectCount")
-                        .HasColumnType("int");
-
-                    b.Property<DateOnly>("SnapshotDate")
-                        .HasColumnType("date");
-
-                    b.Property<DateTimeOffset>("TakenAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<int>("TotalOpen")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Unknown")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SnapshotDate")
-                        .IsUnique();
-
-                    b.ToTable("PostureSnapshots");
                 });
 
             modelBuilder.Entity("Ravelin.Domain.Entities.Project", b =>

@@ -6,6 +6,31 @@ public record CreateProjectRequest
     public required string Key { get; init; }
     public required string Name { get; init; }
     public string? RepositoryUrl { get; init; }
+
+    /// <summary>When true, any authenticated user can read the project (used for demo projects).
+    /// Defaults to false — real projects require explicit membership.</summary>
+    public bool IsPublic { get; init; }
+}
+
+/// <summary>Set whether any authenticated user can read a project.</summary>
+public record SetProjectVisibilityRequest
+{
+    public required bool IsPublic { get; init; }
+}
+
+/// <summary>Grant a user membership of a project (admin), by email.</summary>
+public record GrantMembershipRequest
+{
+    public required string Email { get; init; }
+}
+
+/// <summary>A member of a project.</summary>
+public record ProjectMemberDto
+{
+    public required string UserId { get; init; }
+    public required string Email { get; init; }
+    public required string Role { get; init; }
+    public required DateTimeOffset GrantedAt { get; init; }
 }
 
 /// <summary>Issue an API key for a project (admin / bootstrap).</summary>

@@ -21,10 +21,15 @@ public static class DependencyInjection
                     maxRetryDelay: TimeSpan.FromSeconds(10),
                     errorNumbersToAdd: null)));
 
+        // Injectable clock — services use TimeProvider instead of DateTimeOffset.UtcNow so
+        // time-dependent behavior (SLA transitions, snapshots) can be driven by a fake clock.
+        services.TryAddSingleton(TimeProvider.System);
+
         services.AddScoped<ApiKeyService>();
         services.AddScoped<IngestionService>();
         services.AddSingleton<AuditService>();
         services.AddSingleton<NotificationService>();
+        services.AddSingleton<PostureSnapshotService>();
         services.AddSingleton<SlaReEvaluator>();
 
         // Exploitation-intelligence enrichment is inert until AddVulnerabilityIntelligence enables

@@ -60,7 +60,8 @@ public static class RavelinEndpoints
             await audit.RecordAsync(user.Email!, "auth.login");
 
             var roles = await users.GetRolesAsync(user);
-            var (token, expiresAt) = jwt.CreateToken(user.Id, user.Email!, roles);
+            var stamp = await users.GetSecurityStampAsync(user);
+            var (token, expiresAt) = jwt.CreateToken(user.Id, user.Email!, roles, stamp);
 
             return Results.Ok(new LoginResponse
             {
@@ -76,8 +77,17 @@ public static class RavelinEndpoints
         // Self-service signup. New accounts are ALWAYS read-only Viewers — registration
         // can never grant Analyst/Admin; those are assigned out-of-band by an administrator.
         app.MapPost("/api/auth/register", async (
-            RegisterRequest request, UserManager<IdentityUser> users, JwtTokenService jwt, AuditService audit) =>
+            RegisterRequest request, UserManager<IdentityUser> users, JwtTokenService jwt,
+            AuditService audit, IOptions<RegistrationOptions> registration) =>
         {
+            // Self-service registration is a deliberate, configurable decision (default off).
+            if (registration.Value.Mode != RegistrationMode.Open)
+            {
+                return Results.Problem(
+                    detail: "Self-service registration is disabled on this instance.",
+                    statusCode: StatusCodes.Status403Forbidden);
+            }
+
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             {
                 return Results.BadRequest("Email and password are required.");
@@ -95,7 +105,8 @@ public static class RavelinEndpoints
             await audit.RecordAsync(user.Email!, "auth.register", user.Email, "self-service Viewer");
 
             var roles = await users.GetRolesAsync(user);
-            var (token, expiresAt) = jwt.CreateToken(user.Id, user.Email!, roles);
+            var stamp = await users.GetSecurityStampAsync(user);
+            var (token, expiresAt) = jwt.CreateToken(user.Id, user.Email!, roles, stamp);
 
             return Results.Ok(new LoginResponse
             {
@@ -277,10 +288,14 @@ public static class RavelinEndpoints
                 return Results.Conflict($"Project '{req.Key}' already exists.");
             }
 
-            var project = new Project { Key = req.Key, Name = req.Name, RepositoryUrl = req.RepositoryUrl };
+            var project = new Project
+            {
+                Key = req.Key, Name = req.Name, RepositoryUrl = req.RepositoryUrl, IsPublic = req.IsPublic,
+            };
             db.Projects.Add(project);
             await db.SaveChangesAsync();
-            await audit.RecordAsync(ActorOf(actor), "project.create", project.Key, project.Name);
+            await audit.RecordAsync(ActorOf(actor), "project.create", project.Key,
+                $"{project.Name}{(project.IsPublic ? " (public)" : "")}");
 
             return Results.Created($"/api/projects/{project.Key}", ToDto(project, 0));
         });
@@ -399,6 +414,9 @@ public static class RavelinEndpoints
                 await users.RemoveFromRolesAsync(user, current);
             }
             await users.AddToRoleAsync(user, req.Role);
+            // Revoke the user's existing tokens so the new role takes effect immediately, not at
+            // token expiry (password change/reset already rotate the stamp via Identity).
+            await users.UpdateSecurityStampAsync(user);
             await audit.RecordAsync(ActorOf(actor), "user.role", user.Email, $"{current.FirstOrDefault() ?? "none"} -> {req.Role}");
 
             return Results.Ok(new UserDto { Id = user.Id, Email = user.Email ?? "", Role = req.Role });
@@ -521,6 +539,91 @@ public static class RavelinEndpoints
             });
         });
 
+        // --- Per-project authorization: membership + visibility ---------------------
+        // List a project's members (who can see it beyond Admins / public visibility).
+        admin.MapGet("/projects/{key}/members", async (
+            string key, RavelinDbContext db, UserManager<IdentityUser> users) =>
+        {
+            var project = await db.Projects.FirstOrDefaultAsync(p => p.Key == key);
+            if (project is null) return Results.NotFound($"Project '{key}' not found.");
+
+            var memberships = await db.ProjectMemberships
+                .Where(m => m.ProjectId == project.Id)
+                .OrderBy(m => m.CreatedAt)
+                .ToListAsync();
+
+            var dtos = new List<ProjectMemberDto>(memberships.Count);
+            foreach (var m in memberships)
+            {
+                var u = await users.FindByIdAsync(m.UserId);
+                var roles = u is null ? new List<string>() : (await users.GetRolesAsync(u)).ToList();
+                dtos.Add(new ProjectMemberDto
+                {
+                    UserId = m.UserId,
+                    Email = u?.Email ?? "(deleted user)",
+                    Role = roles.FirstOrDefault() ?? "—",
+                    GrantedAt = m.CreatedAt,
+                });
+            }
+            return Results.Ok(dtos);
+        });
+
+        // Grant a user membership of a project (by email). Idempotent.
+        admin.MapPost("/projects/{key}/members", async (
+            string key, GrantMembershipRequest req, RavelinDbContext db,
+            UserManager<IdentityUser> users, AuditService audit, ClaimsPrincipal actor) =>
+        {
+            if (string.IsNullOrWhiteSpace(req.Email)) return Results.BadRequest("Email is required.");
+
+            var project = await db.Projects.FirstOrDefaultAsync(p => p.Key == key);
+            if (project is null) return Results.NotFound($"Project '{key}' not found.");
+
+            var member = await users.FindByEmailAsync(req.Email);
+            if (member is null) return Results.NotFound($"User '{req.Email}' not found.");
+
+            var exists = await db.ProjectMemberships.AnyAsync(m => m.ProjectId == project.Id && m.UserId == member.Id);
+            if (!exists)
+            {
+                db.ProjectMemberships.Add(new ProjectMembership
+                {
+                    ProjectId = project.Id, UserId = member.Id, GrantedBy = ActorOf(actor),
+                });
+                await db.SaveChangesAsync();
+                await audit.RecordAsync(ActorOf(actor), "project.member.grant", key, member.Email);
+            }
+            return Results.NoContent();
+        });
+
+        // Revoke a user's membership of a project.
+        admin.MapDelete("/projects/{key}/members/{userId}", async (
+            string key, string userId, RavelinDbContext db, AuditService audit, ClaimsPrincipal actor) =>
+        {
+            var project = await db.Projects.FirstOrDefaultAsync(p => p.Key == key);
+            if (project is null) return Results.NotFound($"Project '{key}' not found.");
+
+            var membership = await db.ProjectMemberships
+                .FirstOrDefaultAsync(m => m.ProjectId == project.Id && m.UserId == userId);
+            if (membership is null) return Results.NotFound("Membership not found.");
+
+            db.ProjectMemberships.Remove(membership);
+            await db.SaveChangesAsync();
+            await audit.RecordAsync(ActorOf(actor), "project.member.revoke", key, userId);
+            return Results.NoContent();
+        });
+
+        // Make a project public (any authenticated user can read) or private (members only).
+        admin.MapPut("/projects/{key}/visibility", async (
+            string key, SetProjectVisibilityRequest req, RavelinDbContext db, AuditService audit, ClaimsPrincipal actor) =>
+        {
+            var project = await db.Projects.FirstOrDefaultAsync(p => p.Key == key);
+            if (project is null) return Results.NotFound($"Project '{key}' not found.");
+
+            project.IsPublic = req.IsPublic;
+            await db.SaveChangesAsync();
+            await audit.RecordAsync(ActorOf(actor), "project.visibility", key, req.IsPublic ? "public" : "private");
+            return Results.NoContent();
+        });
+
         // Set / clear a project's outbound alert webhook (Slack or generic; URL validated).
         admin.MapPut("/projects/{key}/webhook", async (
             string key, SetWebhookRequest req, RavelinDbContext db, AuditService audit, ClaimsPrincipal actor) =>
@@ -628,9 +731,10 @@ public static class RavelinEndpoints
     {
         var reads = app.MapGroup("/api").RequireAuthorization();
 
-        reads.MapGet("/projects", async (bool? includeArchived, RavelinDbContext db) =>
+        reads.MapGet("/projects", async (bool? includeArchived, RavelinDbContext db, ClaimsPrincipal user) =>
         {
-            var query = db.Projects.AsQueryable();
+            // Scope to the projects this user may see (public / member of / all for Admins).
+            var query = db.Projects.AsNoTracking().VisibleTo(db, UserIdOf(user), IsAdmin(user));
             if (includeArchived != true) query = query.Where(p => !p.IsArchived);
 
             var projects = await query
@@ -643,6 +747,7 @@ public static class RavelinEndpoints
                     RepositoryUrl = p.RepositoryUrl,
                     OpenFindings = p.Findings.Count(f => f.Status == FindingStatus.Open),
                     IsArchived = p.IsArchived,
+                    IsPublic = p.IsPublic,
                     WebhookUrl = p.WebhookUrl,
                 })
                 .ToListAsync();
@@ -652,10 +757,11 @@ public static class RavelinEndpoints
 
         reads.MapGet("/projects/{key}/findings", async (
             string key, string? status, int? skip, int? take,
-            RavelinDbContext db, IOptions<VulnIntelOptions> vulnOpts) =>
+            RavelinDbContext db, IOptions<VulnIntelOptions> vulnOpts, ClaimsPrincipal user) =>
         {
             var project = await db.Projects.AsNoTracking().FirstOrDefaultAsync(p => p.Key == key);
-            if (project is null)
+            // Treat "not visible to you" the same as "not found" so existence isn't disclosed.
+            if (project is null || !await ProjectVisibility.CanReadAsync(db, project, UserIdOf(user), IsAdmin(user)))
             {
                 return Results.NotFound($"Project '{key}' not found.");
             }
@@ -689,18 +795,25 @@ public static class RavelinEndpoints
         });
 
         // Breached (overdue) open findings, for the compliance report.
-        reads.MapGet("/report/breaches", async (RavelinDbContext db) =>
+        reads.MapGet("/report/breaches", async (RavelinDbContext db, ClaimsPrincipal user) =>
         {
             var now = DateTimeOffset.UtcNow;
+            var uid = UserIdOf(user);
+            var admin = IsAdmin(user);
             // A finding is breached ⟺ open, has a deadline, and the deadline has passed (see
             // SlaEvaluator.Evaluate). Push that predicate into SQL so only breached rows are
             // loaded instead of every open finding across all projects; AsNoTracking since this
             // is read-only. DaysOverdue is still derived from the pure evaluator below.
-            var open = await db.Findings
+            var query = db.Findings
                 .AsNoTracking()
                 .Include(f => f.Project)
-                .Where(f => f.Status == FindingStatus.Open && f.SlaDueAt != null && f.SlaDueAt <= now)
-                .ToListAsync();
+                .Where(f => f.Status == FindingStatus.Open && f.SlaDueAt != null && f.SlaDueAt <= now);
+            if (!admin)
+            {
+                query = query.Where(f => f.Project!.IsPublic ||
+                    (uid != null && db.ProjectMemberships.Any(m => m.ProjectId == f.ProjectId && m.UserId == uid)));
+            }
+            var open = await query.ToListAsync();
 
             var breaches = open
                 .Select(f => new { f, e = SlaEvaluator.Evaluate(f, now) })
@@ -727,12 +840,14 @@ public static class RavelinEndpoints
     // --- Dashboard rollup (Stage 6) -----------------------------------------------------
     private static void MapDashboard(WebApplication app)
     {
-        app.MapGet("/api/dashboard", async (RavelinDbContext db) =>
+        app.MapGet("/api/dashboard", async (RavelinDbContext db, ClaimsPrincipal user) =>
         {
             var now = DateTimeOffset.UtcNow;
 
+            // Dashboard reflects only the projects this user may see.
             var projects = await db.Projects
                 .Where(p => !p.IsArchived)
+                .VisibleTo(db, UserIdOf(user), IsAdmin(user))
                 .Select(p => new { p.Id, p.Key, p.Name })
                 .ToListAsync();
             var activeIds = projects.Select(p => p.Id).ToHashSet();
@@ -819,6 +934,38 @@ public static class RavelinEndpoints
             });
         })
         .RequireAuthorization();
+
+        // Immutable org posture history (one snapshot per day). Admin-only — it aggregates every
+        // project, including ones a scoped user can't see. Oldest-first for charting.
+        app.MapGet("/api/posture/history", async (int? days, RavelinDbContext db) =>
+        {
+            var take = Math.Clamp(days ?? 90, 1, 730);
+            var snapshots = await db.PostureSnapshots
+                .AsNoTracking()
+                .OrderByDescending(s => s.SnapshotDate)
+                .Take(take)
+                .ToListAsync();
+            snapshots.Reverse();
+
+            var dtos = snapshots.Select(s => new PostureSnapshotDto
+            {
+                Date = s.SnapshotDate,
+                ProjectCount = s.ProjectCount,
+                TotalOpen = s.TotalOpen,
+                Breached = s.Breached,
+                DueSoon = s.DueSoon,
+                OnTrack = s.OnTrack,
+                CompliancePercent = s.CompliancePercent,
+                ActivelyExploited = s.ActivelyExploited,
+                OpenBySeverity = new SeverityCountsDto
+                {
+                    Critical = s.Critical, High = s.High, Medium = s.Medium, Low = s.Low, Unknown = s.Unknown,
+                },
+            }).ToList();
+
+            return Results.Ok(dtos);
+        })
+        .RequireAuthorization(policy => policy.RequireRole(RavelinRoles.Admin));
     }
 
     // --- SLA engine + triage (Stage 5) --------------------------------------------------
@@ -924,7 +1071,8 @@ public static class RavelinEndpoints
             var finding = await db.Findings
                 .Include(f => f.Project)
                 .FirstOrDefaultAsync(f => f.Id == id && f.Project!.Key == key);
-            if (finding is null)
+            if (finding is null ||
+                !await ProjectVisibility.CanReadAsync(db, finding.Project!, UserIdOf(actor), IsAdmin(actor)))
             {
                 return Results.NotFound($"Finding '{id}' not found in project '{key}'.");
             }
@@ -943,10 +1091,10 @@ public static class RavelinEndpoints
         .DisableAntiforgery();
 
         // Per-project SLA posture (open findings only).
-        app.MapGet("/api/projects/{key}/sla-summary", async (string key, RavelinDbContext db) =>
+        app.MapGet("/api/projects/{key}/sla-summary", async (string key, RavelinDbContext db, ClaimsPrincipal user) =>
         {
             var project = await db.Projects.FirstOrDefaultAsync(p => p.Key == key);
-            if (project is null)
+            if (project is null || !await ProjectVisibility.CanReadAsync(db, project, UserIdOf(user), IsAdmin(user)))
             {
                 return Results.NotFound($"Project '{key}' not found.");
             }
@@ -989,10 +1137,18 @@ public static class RavelinEndpoints
     {
         var alerts = app.MapGroup("/api").RequireAuthorization();
 
-        alerts.MapGet("/alerts", async (string? state, bool? acknowledged, RavelinDbContext db) =>
+        alerts.MapGet("/alerts", async (string? state, bool? acknowledged, RavelinDbContext db, ClaimsPrincipal user) =>
         {
             var now = DateTimeOffset.UtcNow;
+            var uid = UserIdOf(user);
+            var admin = IsAdmin(user);
             var query = db.FindingAlerts.AsQueryable();
+            if (!admin)
+            {
+                query = query.Where(a =>
+                    db.Projects.Any(p => p.Id == a.ProjectId && p.IsPublic) ||
+                    (uid != null && db.ProjectMemberships.Any(m => m.ProjectId == a.ProjectId && m.UserId == uid)));
+            }
             if (Enum.TryParse<SlaState>(state, ignoreCase: true, out var st)) query = query.Where(a => a.State == st);
             if (acknowledged == true) query = query.Where(a => a.AcknowledgedAt != null);
             else if (acknowledged == false) query = query.Where(a => a.AcknowledgedAt == null);
@@ -1023,9 +1179,19 @@ public static class RavelinEndpoints
             return Results.Ok(dtos);
         });
 
-        // Unacknowledged count for the nav badge.
-        alerts.MapGet("/alerts/count", async (RavelinDbContext db) =>
-            Results.Ok(await db.FindingAlerts.CountAsync(a => a.AcknowledgedAt == null)));
+        // Unacknowledged count for the nav badge (scoped to the user's visible projects).
+        alerts.MapGet("/alerts/count", async (RavelinDbContext db, ClaimsPrincipal user) =>
+        {
+            var uid = UserIdOf(user);
+            var query = db.FindingAlerts.Where(a => a.AcknowledgedAt == null);
+            if (!IsAdmin(user))
+            {
+                query = query.Where(a =>
+                    db.Projects.Any(p => p.Id == a.ProjectId && p.IsPublic) ||
+                    (uid != null && db.ProjectMemberships.Any(m => m.ProjectId == a.ProjectId && m.UserId == uid)));
+            }
+            return Results.Ok(await query.CountAsync());
+        });
 
         alerts.MapPost("/alerts/{id:guid}/acknowledge", async (
             Guid id, RavelinDbContext db, AuditService audit, ClaimsPrincipal actor) =>
@@ -1054,6 +1220,12 @@ public static class RavelinEndpoints
     /// <summary>The acting user's email for audit records (NameClaimType is "email").</summary>
     private static string ActorOf(ClaimsPrincipal user) =>
         user.Identity?.Name ?? user.FindFirstValue("email") ?? "unknown";
+
+    /// <summary>The acting user's Identity id (the JWT "sub" claim).</summary>
+    private static string? UserIdOf(ClaimsPrincipal user) => user.FindFirstValue("sub");
+
+    /// <summary>True when the caller holds the Admin role (Admins can see every project).</summary>
+    private static bool IsAdmin(ClaimsPrincipal user) => user.IsInRole(RavelinRoles.Admin);
 
     /// <summary>A cryptographically-random 16-char password that satisfies the Identity policy
     /// (upper/lower/digit/symbol, ≥12). Used for admin-initiated resets (no email).</summary>
@@ -1085,6 +1257,7 @@ public static class RavelinEndpoints
         RepositoryUrl = p.RepositoryUrl,
         OpenFindings = openFindings,
         IsArchived = p.IsArchived,
+        IsPublic = p.IsPublic,
         WebhookUrl = p.WebhookUrl,
     };
 
