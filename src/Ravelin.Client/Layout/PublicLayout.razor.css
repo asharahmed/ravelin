@@ -7,7 +7,8 @@
 /* Slim top bar instead of the portal sidebar. Full-width bar, centred contents. */
 .public-top {
     position: sticky;
-    top: 0;
+    /* Stick below the demo bar when present (--demo-bar-h is 0 on local dev). */
+    top: var(--demo-bar-h, 0px);
     z-index: 10;
     background: color-mix(in oklch, var(--paper) 86%, transparent);
     backdrop-filter: saturate(1.1) blur(8px);

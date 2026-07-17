@@ -69,14 +69,15 @@ main > .content {
 
     .sidebar {
         width: 250px;
-        height: 100vh;
+        /* Offset below the demo bar when present (--demo-bar-h is 0 on local dev). */
+        height: calc(100vh - var(--demo-bar-h, 0px));
         position: sticky;
-        top: 0;
+        top: var(--demo-bar-h, 0px);
     }
 
     .top-row {
         position: sticky;
-        top: 0;
+        top: var(--demo-bar-h, 0px);
         z-index: 1;
     }
 
